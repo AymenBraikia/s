@@ -86,7 +86,7 @@
             attack: 3,
             stop_attack: 46,
             place: 33,
-            drop: 28,
+            drop: 6,
         };
 
         const ItemType = {
