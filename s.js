@@ -190,7 +190,7 @@
                 last: -1,
                 target: null,
                 attack: false,
-                angle: 0,
+                angle: null,
                 org_angle: 0,
                 draw: true,
             },
@@ -681,39 +681,39 @@
         const RADUIS = {
             PLOT: 45,
             TOTEM: 45,
-            PLAYERS: 25,
+            PLAYERS: 23,
             CHEST: 35,
             EMERALD_MACHINE: 60,
 
-            WOOD_DOOR_SPIKE: 50,
-            STONE_DOOR_SPIKE: 50,
-            GOLD_DOOR_SPIKE: 50,
-            DIAMOND_DOOR_SPIKE: 50,
-            AMETHYST_DOOR_SPIKE: 50,
-            REIDITE_DOOR_SPIKE: 50,
-            EMERALD_DOOR_SPIKE: 50,
+            WOOD_DOOR_SPIKE: 43,
+            STONE_DOOR_SPIKE: 43,
+            GOLD_DOOR_SPIKE: 43,
+            DIAMOND_DOOR_SPIKE: 43,
+            AMETHYST_DOOR_SPIKE: 43,
+            REIDITE_DOOR_SPIKE: 43,
+            EMERALD_DOOR_SPIKE: 43,
 
-            SPIKE: 50,
-            STONE_SPIKE: 50,
-            GOLD_SPIKE: 50,
-            DIAMOND_SPIKE: 50,
-            AMETHYST_SPIKE: 50,
-            REIDITE_SPIKE: 50,
-            EMERALD_SPIKE: 50,
+            SPIKE: 43,
+            STONE_SPIKE: 43,
+            GOLD_SPIKE: 43,
+            DIAMOND_SPIKE: 43,
+            AMETHYST_SPIKE: 43,
+            REIDITE_SPIKE: 43,
+            EMERALD_SPIKE: 43,
 
-            WALL: 48,
-            STONE_WALL: 48,
-            GOLD_WALL: 48,
-            DIAMOND_WALL: 48,
-            AMETHYST_WALL: 48,
-            REIDITE_WALL: 48,
+            WALL: 45,
+            STONE_WALL: 45,
+            GOLD_WALL: 45,
+            DIAMOND_WALL: 45,
+            AMETHYST_WALL: 45,
+            REIDITE_WALL: 45,
 
-            WOOD_DOOR: 48,
-            STONE_DOOR: 48,
-            GOLD_DOOR: 48,
-            DIAMOND_DOOR: 48,
-            AMETHYST_DOOR: 48,
-            REIDITE_DOOR: 48,
+            WOOD_DOOR: 45,
+            STONE_DOOR: 45,
+            GOLD_DOOR: 45,
+            DIAMOND_DOOR: 45,
+            AMETHYST_DOOR: 45,
+            REIDITE_DOOR: 45,
         };
 
         const weapons = new Set([
@@ -1099,7 +1099,8 @@
             const stepDeg = 1;
             const maxSteps = 60;
 
-            const base = settings.aimbot.angle ?? angle ?? me.angle;
+            const base = typeof settings.aimbot.angle == "number" ? settings.aimbot.angle : (angle ?? me.angle);
+            console.log(typeof settings.aimbot.angle == "number" ? "settings.aimbot.angle" : (angle ?? "me.angle"));
             const step = (stepDeg * Math.PI) / 180;
 
             // Try:
