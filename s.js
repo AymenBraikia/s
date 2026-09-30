@@ -1097,7 +1097,7 @@
 
         function best_angle(me, item, angle = null) {
             const stepDeg = 1;
-            const maxSteps = 50;
+            const maxSteps = 60;
 
             const base = settings.aimbot.angle ?? angle ?? me.angle;
             const step = (stepDeg * Math.PI) / 180;
@@ -1177,6 +1177,13 @@
         }
 
         const calcDist = (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const format_number = (num) => {
+            if (num < 1_000) return num.toString();
+            if (num < 1_000_000) return `${(num / 1_000).toFixed(2).replace(/\.?0+$/, "")}k`;
+            if (num < 1_000_000_000) return `${(num / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}m`;
+            if (num < 1_000_000_000_000) return `${(num / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "")}b`;
+            return `${(num / 1_000_000_000_000).toFixed(2).replace(/\.?0+$/, "")}t`;
+        };
 
         function draw_ui() {
             const canvas = document.querySelector("canvas");
@@ -1187,10 +1194,24 @@
             const x = 10;
             const lineHeight = 24;
             let y = 290;
-
             ctx.font = "18px Baloo Paaji";
             ctx.textBaseline = "top";
             ctx.textAlign = "left";
+
+            if (user[vars.inv].n[ItemType.BOTTLE_EMPTY]) {
+                // Shadow/outline
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "black";
+
+                const txt = "Bottles: " + format_number(user[vars.inv].n[ItemType.BOTTLE_EMPTY]);
+
+                ctx.strokeText(txt, x, y);
+
+                // Text
+                ctx.fillStyle = "cyan";
+                ctx.fillText(txt, x, y);
+                y += lineHeight;
+            }
 
             for (const k in settings) {
                 const s = settings[k];
