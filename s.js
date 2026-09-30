@@ -7,7 +7,7 @@
             requestAnimationFrame(run_time);
             if (!window.user || !window.world) return;
 
-            // draw_ui();
+            draw_ui();
 
             const timestamp = Date.now();
             let me = null;
@@ -19,11 +19,12 @@
                 }
             }
             if (!me) return;
+            window.aymen = me;
 
-            if (settings.dropsword.enabled && timestamp - settings.dropsword.last > settings.dropsword.cd) if (weapons.has(me.right)) sendAymen([packets.drop, me.right]);
+            if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) sendAymen([packets.drop, me.right]);
 
             // auto spike
-            if (settings.autospike.enabled && timestamp - settings.autospike.last > settings.autospike.cd) {
+            if (settings.auto_spike.enabled && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
                 let spike, type;
 
                 const amounts = user[vars.inv].n;
@@ -37,56 +38,184 @@
 
                 if (spike) {
                     const angle = Math.floor((((best_angle(me, type) + PI2M) % PI2M) * 255) / PI2M);
-                    if (angle) {
-                        settings.autospike.cd = get_num_in_range({ min: 100, max: 200 });
+                    if (typeof angle == "number") {
                         user[vars.craft].preview = spike;
 
-                        // await randomSleep(settings.autospike.awaits);
                         sendAymen([packets.angle, angle]);
                         sendAymen([packets.place, spike, angle, 0]);
 
-                        settings.autospike.last = Date.now();
+                        settings.auto_spike.last = timestamp;
                         user[vars.craft].preview = -2;
+                        settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
                     }
                 }
             }
+            // auto door
+            if (settings.auto_door.enabled && timestamp - settings.auto_door.last > settings.auto_door.cd) {
+                let spike, type;
+
+                const amounts = user[vars.inv].n;
+                if (amounts[ItemType.EMERALD_DOOR_SPIKE]) ((spike = ItemType.EMERALD_DOOR_SPIKE), (type = ITEMS.EMERALD_DOOR_SPIKE));
+                else if (amounts[ItemType.REIDITE_DOOR_SPIKE]) ((spike = ItemType.REIDITE_DOOR_SPIKE), (type = ITEMS.REIDITE_DOOR_SPIKE));
+                else if (amounts[ItemType.AMETHYST_DOOR_SPIKE]) ((spike = ItemType.AMETHYST_DOOR_SPIKE), (type = ITEMS.AMETHYST_DOOR_SPIKE));
+                else if (amounts[ItemType.DIAMOND_DOOR_SPIKE]) ((spike = ItemType.DIAMOND_DOOR_SPIKE), (type = ITEMS.DIAMOND_DOOR_SPIKE));
+                else if (amounts[ItemType.GOLD_DOOR_SPIKE]) ((spike = ItemType.GOLD_DOOR_SPIKE), (type = ITEMS.GOLD_DOOR_SPIKE));
+                else if (amounts[ItemType.STONE_DOOR_SPIKE]) ((spike = ItemType.STONE_DOOR_SPIKE), (type = ITEMS.STONE_DOOR_SPIKE));
+                else if (amounts[ItemType.WOOD_DOOR_SPIKE]) ((spike = ItemType.WOOD_DOOR_SPIKE), (type = ITEMS.WOOD_DOOR_SPIKE));
+
+                if (spike) {
+                    const angle = Math.floor((((best_angle(me, type) + PI2M) % PI2M) * 255) / PI2M);
+                    if (angle) {
+                        user[vars.craft].preview = spike;
+
+                        sendAymen([packets.angle, angle]);
+                        sendAymen([packets.place, spike, angle, 0]);
+
+                        user[vars.craft].preview = -2;
+                        settings.auto_door.last = timestamp;
+                        settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
+                    }
+                }
+            }
+            // auto land
+            if (me.vehicle)
+                if (me.fly) settings.auto_land.enabled = true;
+                else if (settings.auto_land.enabled) {
+                    settings.auto_land.enabled = false;
+                    sendAymen([packets.equipe, me.vehicle]);
+                }
+
+            if (settings.aimbot.enabled && weapons.has(me.right)) {
+                if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
+                    const target = get_closest(me, get_range(me.right));
+                    settings.aimbot.target = target;
+
+                    if (target) {
+                        let angle = calcAngle(me, target);
+                        if (settings.aimbot.org_angle != angle) {
+                            settings.aimbot.org_angle = angle;
+                            angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
+                            settings.aimbot.angle = angle;
+
+                            //     sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+                        }
+
+                        if (!settings.aimbot.attack) {
+                            settings.aimbot.attack = true;
+                            sendAymen([packets.attack, [packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]]);
+                        }
+
+                        settings.aimbot.last = timestamp;
+                    } else if (settings.aimbot.attack) {
+                        settings.aimbot.attack = false;
+                        settings.aimbot.angle = null;
+                        settings.aimbot.org_angle = null;
+                        sendAymen([packets.stop_attack]);
+                    }
+                }
+            } else if (settings.aimbot.attack) {
+                settings.aimbot.attack = false;
+                settings.aimbot.angle = null;
+                settings.aimbot.org_angle = null;
+                sendAymen([packets.stop_attack]);
+            }
+
+            if (settings.hide_afk.enabled) {
+                for (const p of world[vars.units][ITEMS.PLAYERS]) {
+                    // prop
+                    if (!vars.draw_player) for (const e in p) typeof p[e] == "function" && p[e].name == "draw_player"((vars.draw_player = e));
+
+                    if (!p.drawhooked) {
+                        p.originalDraw = p[vars.draw_player];
+                        p.drawhooked = true;
+                    }
+
+                    if (p.right == ItemType.WOOD_SHIELD && p[vars.draw_player] != void_function) p[vars.draw_player] = void_function;
+                    if (p.right != ItemType.WOOD_SHIELD && p[vars.draw_player] == void_function) p[vars.draw_player] = p.originalDraw;
+                }
+                settings.hide_afk.set = true;
+            } else if (settings.hide_afk.set) {
+                settings.hide_afk.set = false;
+                for (const p of world[vars.units][ITEMS.PLAYERS]) p[vars.draw_player] = p.originalDraw;
+            }
+
+            if (settings.steal_chest.enabled && timestamp - settings.steal_chest.last > settings.steal_chest.cd && get_closest_chest(me)) {
+                settings.steal_chest.last = timestamp;
+                sendAymen([packets.take_chest, 1e8]);
+            }
         }
 
-        window.settings = {
-            autospike: {
+        const settings = {
+            auto_land: {
+                cd: 200,
+                last: -1,
+                v: 0,
+                enabled: false,
+            },
+            auto_spike: {
                 k: "Space",
                 type: "hold",
                 enabled: false,
-                cd: 200,
+                cd: 50,
                 last: -1,
                 target: null,
+                draw: true,
             },
-            dropsword: {
+            auto_door: {
+                k: "KeyC",
+                type: "hold",
+                enabled: false,
+                cd: 50,
+                last: -1,
+                target: null,
+                draw: true,
+            },
+            drop_sword: {
                 k: "KeyV",
                 type: "hold",
                 enabled: false,
                 cd: 200,
                 last: -1,
+                draw: true,
             },
             aimbot: {
                 k: "KeyF",
                 type: "press",
                 enabled: false,
-                cd: 150,
+                cd: 50,
                 last: -1,
                 target: null,
                 attack: false,
                 angle: 0,
                 org_angle: 0,
+                draw: true,
+            },
+            hide_afk: {
+                k: "Backspace",
+                enabled: false,
+                set: false,
+                type: "press",
+                draw: true,
+            },
+            steal_chest: {
+                k: "KeyR",
+                enabled: false,
+                type: "press",
+                draw: true,
+                cd: 100,
+                last: -1,
             },
         };
+        window.settings = settings;
 
         const packets = {
+            equipe: 5,
             angle: 4,
             attack: 3,
             stop_attack: 46,
             place: 33,
             drop: 6,
+            take_chest: 8,
         };
 
         const ItemType = {
@@ -548,7 +677,7 @@
         const RADUIS = {
             PLOT: 45,
             TOTEM: 45,
-            PLAYERS: 20,
+            PLAYERS: 25,
             CHEST: 35,
             EMERALD_MACHINE: 60,
 
@@ -765,6 +894,130 @@
         };
         let resources;
 
+        const sword_range = 135,
+            spear_range = 197,
+            pirate_range = 140,
+            bow_range = 700;
+
+        const get_range = (r) => {
+            switch (r) {
+                case ItemType.WOOD_SWORD:
+                    return sword_range;
+                case ItemType.STONE_SWORD:
+                    return sword_range;
+                case ItemType.GOLD_SWORD:
+                    return sword_range;
+                case ItemType.DIAMOND_SWORD:
+                    return sword_range;
+                case ItemType.AMETHYST_SWORD:
+                    return sword_range;
+                case ItemType.REIDITE_SWORD:
+                    return sword_range;
+                case ItemType.DRAGON_SWORD:
+                    return sword_range;
+                case ItemType.LAVA_SWORD:
+                    return sword_range;
+                case ItemType.CURSED_SWORD:
+                    return sword_range;
+                case ItemType.PIRATE_SWORD:
+                    return pirate_range;
+
+                case ItemType.IRON_SWORD:
+                    return sword_range;
+                case ItemType.COPPER_SWORD:
+                    return sword_range;
+                case ItemType.TOPAZ_SWORD:
+                    return sword_range;
+                case ItemType.AQUAMARINE_SWORD:
+                    return sword_range;
+                case ItemType.RUBY_SWORD:
+                    return sword_range;
+                case ItemType.COAL_SWORD:
+                    return sword_range;
+                case ItemType.EMERALD_SWORD:
+                    return sword_range;
+                case ItemType.JADE_SWORD:
+                    return sword_range;
+                case ItemType.SAPPHIRE_SWORD:
+                    return sword_range;
+
+                case ItemType.WOOD_SPEAR:
+                    return spear_range;
+                case ItemType.STONE_SPEAR:
+                    return spear_range;
+                case ItemType.GOLD_SPEAR:
+                    return spear_range;
+                case ItemType.DIAMOND_SPEAR:
+                    return spear_range;
+                case ItemType.AMETHYST_SPEAR:
+                    return spear_range;
+                case ItemType.REIDITE_SPEAR:
+                    return spear_range;
+                case ItemType.DRAGON_SPEAR:
+                    return spear_range;
+                case ItemType.LAVA_SPEAR:
+                    return spear_range;
+                case ItemType.CRAB_SPEAR:
+                    return spear_range;
+
+                case ItemType.IRON_SPEAR:
+                    return spear_range;
+                case ItemType.COPPER_SPEAR:
+                    return spear_range;
+                case ItemType.TOPAZ_SPEAR:
+                    return spear_range;
+                case ItemType.AQUAMARINE_SPEAR:
+                    return spear_range;
+                case ItemType.RUBY_SPEAR:
+                    return spear_range;
+                case ItemType.COAL_SPEAR:
+                    return spear_range;
+                case ItemType.EMERALD_SPEAR:
+                    return spear_range;
+                case ItemType.JADE_SPEAR:
+                    return spear_range;
+                case ItemType.SAPPHIRE_SPEAR:
+                    return spear_range;
+
+                case ItemType.WOOD_BOW:
+                    return bow_range;
+                case ItemType.STONE_BOW:
+                    return bow_range;
+                case ItemType.GOLD_BOW:
+                    return bow_range;
+                case ItemType.DIAMOND_BOW:
+                    return bow_range;
+                case ItemType.AMETHYST_BOW:
+                    return bow_range;
+                case ItemType.REIDITE_BOW:
+                    return bow_range;
+                case ItemType.DRAGON_BOW:
+                    return bow_range;
+
+                case ItemType.IRON_BOW:
+                    return bow_range;
+                case ItemType.COPPER_BOW:
+                    return bow_range;
+                case ItemType.TOPAZ_BOW:
+                    return bow_range;
+                case ItemType.AQUAMARINE_BOW:
+                    return bow_range;
+                case ItemType.RUBY_BOW:
+                    return bow_range;
+                case ItemType.COAL_BOW:
+                    return bow_range;
+                case ItemType.EMERALD_BOW:
+                    return bow_range;
+                case ItemType.JADE_BOW:
+                    return bow_range;
+                case ItemType.SAPPHIRE_BOW:
+                    return bow_range;
+
+                default:
+                    return 0;
+            }
+        };
+
         function can_build(me, item, angle) {
             let itemName = null;
 
@@ -842,7 +1095,7 @@
             const stepDeg = 1;
             const maxSteps = 50;
 
-            const base = angle ?? me.angle;
+            const base = settings.aimbot.angle ?? angle ?? me.angle;
             const step = (stepDeg * Math.PI) / 180;
 
             // Try:
@@ -892,12 +1145,27 @@
             let dist = max || Infinity;
             let closest = null;
             for (const t of world[vars.units][ITEMS.PLAYERS]) {
-                if (t.pid == user.id) continue;
+                if (t.pid == user.id || user[vars.team].includes(t.pid)) continue;
                 const d = calcDist(me, t);
 
                 if (d < dist) {
                     dist = d;
                     closest = t;
+                }
+            }
+
+            return closest;
+        }
+        function get_closest_chest(me) {
+            let dist = 100;
+            let closest = null;
+            for (const chest of world[vars.units][ITEMS.CHEST]) {
+                if (chest.lock || !chest.extra || !chest.info) continue;
+                const d = calcDist(me, chest);
+
+                if (d < dist) {
+                    dist = d;
+                    closest = chest;
                 }
             }
 
@@ -913,10 +1181,10 @@
             ctx.save();
 
             const x = 10;
-            const lineHeight = 28;
-            let y = 25;
+            const lineHeight = 24;
+            let y = 290;
 
-            ctx.font = "20px Baloo Paaji";
+            ctx.font = "18px Baloo Paaji";
             ctx.textBaseline = "top";
             ctx.textAlign = "left";
 
@@ -926,13 +1194,13 @@
                 if (!s.draw || !s.enabled) continue;
 
                 // Shadow/outline
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 4;
                 ctx.strokeStyle = "black";
-                ctx.strokeText(k, x, y);
+                ctx.strokeText(k.replaceAll("_", " "), x, y);
 
                 // Text
-                ctx.fillStyle = "white";
-                ctx.fillText(k, x, y);
+                ctx.fillStyle = "red";
+                ctx.fillText(k.replaceAll("_", " "), x, y);
 
                 y += lineHeight;
             }
@@ -961,6 +1229,8 @@
 
             return original + noise.v;
         }
+
+        const void_function = () => {};
     } catch (error) {
         if (window.debugErr) console.error(error);
     }
