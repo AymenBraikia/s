@@ -80,10 +80,14 @@
             // auto land
             if (me.vehicle)
                 if (me.fly) settings.auto_land.enabled = true;
-                else if (settings.auto_land.enabled) {
-                    settings.auto_land.enabled = false;
-                    sendAymen([packets.equipe, me.vehicle]);
-                }
+                else if (settings.auto_land.enabled)
+                    if (me.vehicle == ItemType.NIMBUS) {
+                        settings.auto_land.enabled = false;
+                        sendAymen([packets.equipe, me.vehicle]);
+                    } else if (me.speed <= 100) {
+                        settings.auto_land.enabled = false;
+                        sendAymen([packets.equipe, me.vehicle]);
+                    }
 
             if (settings.aimbot.enabled && weapons.has(me.right)) {
                 if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
