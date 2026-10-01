@@ -1283,7 +1283,7 @@
 
             if (user[vars.gauges].l < 1) {
                 ctx.save();
-                const h = user[vars.gauges].l * 200;
+                const h = Math.round(user[vars.gauges].l * 200);
                 const t = h + "hp";
 
                 ctx.font = "24px Baloo Paaji";
