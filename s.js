@@ -209,7 +209,7 @@
                 k: "KeyF",
                 type: "press",
                 enabled: false,
-                cd: 50,
+                cd: 10,
                 last: -1,
                 target: null,
                 attack: false,
@@ -1309,16 +1309,17 @@
         const noise = {
             inc_chance: 50,
             v: 0,
-            max: 20,
-            min: -20,
-            gap: 40,
+            max: 10,
+            min: -10,
+            gap: 20,
         };
 
         function randomize(original) {
             const roll = Math.random() * 100;
             let direction = roll > noise.inc_chance ? 1 : -1;
 
-            noise.inc_chance = ((noise.v + 20) * 100) / noise.gap;
+            // noise.inc_chance = ((noise.v + 20) * 100) / noise.gap;
+            noise.inc_chance = ((noise.v + 1) * 100) / noise.gap;
 
             // noise.v = noise.v + Math.random() * (Math.random() * 10 + 5) * direction;
             noise.v = noise.v + Math.random() * (Math.random() * 5) * direction;
