@@ -1,16 +1,17 @@
 (() => {
     try {
+        const canvas = document.querySelector("canvas");
+        const ctx = canvas.getContext("2d");
+
         const PI2M = 2 * window.Math.PI;
         let vars = null;
+        let me = null;
 
         async function run_time() {
             requestAnimationFrame(run_time);
             if (!window.user || !window.world) return;
 
-            draw_ui();
-
             const timestamp = Date.now();
-            let me = null;
 
             for (const p of world[vars.units][ITEMS.PLAYERS]) {
                 if (p.pid == user.id) {
@@ -20,6 +21,8 @@
             }
             if (!me) return;
             window.aymen = me;
+
+            draw_ui();
 
             if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) sendAymen([packets.drop, me.right]);
 
@@ -37,8 +40,9 @@
                 else if (amounts[ItemType.WOOD_SPIKE]) ((spike = ItemType.WOOD_SPIKE), (type = ITEMS.SPIKE));
 
                 if (spike) {
-                    const angle = Math.floor((((best_angle(me, type) + PI2M) % PI2M) * 255) / PI2M);
-                    if (typeof angle == "number") {
+                    const adjust = best_angle(me, type);
+                    if (adjust) {
+                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
                         user[vars.craft].preview = spike;
 
                         sendAymen([packets.angle, angle]);
@@ -88,32 +92,34 @@
                         sendAymen([packets.equipe, me.vehicle]);
                     }
 
-            if (settings.aimbot.enabled && weapons.has(me.right)) {
-                if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
-                    const target = get_closest_player(me, get_range(me.right));
-                    settings.aimbot.target = target;
+            if (settings.aimbot.enabled) {
+                if (weapons.has(me.right)) {
+                    if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
+                        const target = get_closest_player(me, get_range(me.right));
+                        settings.aimbot.target = target;
 
-                    if (target) {
-                        let angle = calcAngle(me, target);
-                        if (settings.aimbot.org_angle != angle) {
-                            settings.aimbot.org_angle = angle;
-                            angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
-                            settings.aimbot.angle = angle;
+                        if (target) {
+                            let angle = calcAngle(me, target);
+                            if (settings.aimbot.org_angle != angle) {
+                                settings.aimbot.org_angle = angle;
+                                angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
+                                settings.aimbot.angle = angle;
 
-                            //     sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+                                //     sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+                            }
+
+                            if (!settings.aimbot.attack) {
+                                settings.aimbot.attack = true;
+                                sendAymen([packets.attack, [packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]]);
+                            }
+
+                            settings.aimbot.last = timestamp;
+                        } else if (settings.aimbot.attack) {
+                            settings.aimbot.attack = false;
+                            settings.aimbot.angle = null;
+                            settings.aimbot.org_angle = null;
+                            sendAymen([packets.stop_attack]);
                         }
-
-                        if (!settings.aimbot.attack) {
-                            settings.aimbot.attack = true;
-                            sendAymen([packets.attack, [packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]]);
-                        }
-
-                        settings.aimbot.last = timestamp;
-                    } else if (settings.aimbot.attack) {
-                        settings.aimbot.attack = false;
-                        settings.aimbot.angle = null;
-                        settings.aimbot.org_angle = null;
-                        sendAymen([packets.stop_attack]);
                     }
                 }
             } else if (settings.aimbot.attack) {
@@ -228,7 +234,7 @@
             },
             auto_sell: {
                 k: "KeyL",
-                enabled: false,
+                enabled: true,
                 type: "press",
                 draw: true,
                 cd: 50,
@@ -707,7 +713,7 @@
         const RADUIS = {
             PLOT: 45,
             TOTEM: 45,
-            PLAYERS: 23,
+            PLAYERS: 30,
             CHEST: 35,
             EMERALD_MACHINE: 60,
 
@@ -1211,51 +1217,89 @@
         };
 
         function draw_ui() {
-            const canvas = document.querySelector("canvas");
-            const ctx = canvas.getContext("2d");
-
-            ctx.save();
+            const cam_x = me.x + user[vars.cam].x,
+                cam_y = me.y + user[vars.cam].y;
 
             const x = 10;
             const lineHeight = 24;
             let y = 290;
+
+            ctx.save();
+
             ctx.font = "18px Baloo Paaji";
             ctx.textBaseline = "top";
             ctx.textAlign = "left";
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "black";
 
             if (user[vars.inv].n[ItemType.BOTTLE_EMPTY]) {
-                // Shadow/outline
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = "black";
-
                 const txt = "Bottles: " + format_number(user[vars.inv].n[ItemType.BOTTLE_EMPTY]);
 
                 ctx.strokeText(txt, x, y);
 
-                // Text
                 ctx.fillStyle = "cyan";
                 ctx.fillText(txt, x, y);
                 y += lineHeight;
             }
 
+            ctx.fillStyle = "red";
+
             for (const k in settings) {
                 const s = settings[k];
 
                 if (!s.draw || !s.enabled) continue;
-
-                // Shadow/outline
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = "black";
                 ctx.strokeText(k.replaceAll("_", " "), x, y);
 
-                // Text
-                ctx.fillStyle = "red";
                 ctx.fillText(k.replaceAll("_", " "), x, y);
 
                 y += lineHeight;
             }
 
             ctx.restore();
+
+            if (settings.aimbot.enabled) {
+                ctx.save();
+
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.6;
+
+                ctx.strokeStyle = get_closest_player(me, sword_range) ? "lime" : "red";
+                ctx.beginPath();
+                ctx.arc(cam_x, cam_y, sword_range, 0, PI2M);
+                ctx.stroke();
+
+                ctx.strokeStyle = get_closest_player(me, pirate_range) ? "lime" : "red";
+                ctx.beginPath();
+                ctx.arc(cam_x, cam_y, pirate_range, 0, PI2M);
+                ctx.stroke();
+
+                ctx.strokeStyle = get_closest_player(me, spear_range) ? "lime" : "red";
+                ctx.beginPath();
+                ctx.arc(cam_x, cam_y, spear_range, 0, PI2M);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            if (user[vars.gauges].l < 1) {
+                const h = user[vars.gauges].l * 200;
+                const t = h + "hp";
+
+                ctx.font = "24px Baloo Paaji";
+                ctx.textBaseline = "top";
+                ctx.textAlign = "left";
+                ctx.globalAlpha = 0.8;
+
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "black";
+
+                ctx.fillStyle = h > 100 ? "lime" : h > 50 ? "orange" : "red";
+                const r = ctx.measureText(t);
+
+                ctx.strokeText(t, cam_x - r.width / 2, cam_y + 50);
+
+                ctx.fillText(t, cam_x - r.width / 2, cam_y + 50);
+            }
         }
 
         run_time();
@@ -1285,4 +1329,8 @@
         if (window.debugErr) console.error(error);
     }
     window.debugErr = true;
+
+    document.querySelector("#shop_market").style.opacity = 0.6;
+    document.querySelector("#home_craft").style.opacity = 0.6;
+    document.querySelector("#recipe_craft").style.opacity = 0.6;
 })();
