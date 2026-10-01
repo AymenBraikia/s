@@ -67,7 +67,6 @@
                     const angle = Math.floor((((best_angle(me, type) + PI2M) % PI2M) * 255) / PI2M);
                     if (angle) {
                         user[vars.craft].preview = spike;
-
                         sendAymen([packets.angle, angle]);
                         sendAymen([packets.place, spike, angle, 0]);
 
@@ -91,7 +90,7 @@
 
             if (settings.aimbot.enabled && weapons.has(me.right)) {
                 if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
-                    const target = get_closest(me, get_range(me.right));
+                    const target = get_closest_player(me, get_range(me.right));
                     settings.aimbot.target = target;
 
                     if (target) {
@@ -147,8 +146,26 @@
                 settings.steal_chest.last = timestamp;
                 sendAymen([packets.take_chest, 1e8]);
             }
+            if (settings.auto_sell.enabled && timestamp - settings.auto_sell.last > settings.auto_sell.cd) {
+                settings.auto_sell.last = timestamp;
+                const amounts = user[vars.inv].n;
+
+                if (amounts[ItemType.COOKED_MEAT]) sendAymen([packets.sell, amounts[ItemType.COOKED_MEAT], sell_ids.MEAT]);
+                if (amounts[ItemType.COOKIE]) sendAymen([packets.sell, amounts[ItemType.COOKIE], sell_ids.COOKIE]);
+                if (amounts[ItemType.SANDWICH]) sendAymen([packets.sell, amounts[ItemType.SANDWICH], sell_ids.SANDWICH]);
+                if (amounts[ItemType.CAKE]) sendAymen([packets.sell, amounts[ItemType.CAKE], sell_ids.CAKE]);
+                if (amounts[ItemType.BREAD]) sendAymen([packets.sell, amounts[ItemType.BREAD], sell_ids.BREAD]);
+            }
         }
 
+        const sell_ids = {
+            BREAD: 15,
+            SANDWICH: 14,
+            MEAT: 13,
+            COOKIE: 12,
+            CAKE: 11,
+            SPIKE: 35,
+        };
         const settings = {
             auto_land: {
                 cd: 200,
@@ -206,7 +223,15 @@
                 enabled: false,
                 type: "press",
                 draw: true,
-                cd: 100,
+                cd: 50,
+                last: -1,
+            },
+            auto_sell: {
+                k: "KeyL",
+                enabled: false,
+                type: "press",
+                draw: true,
+                cd: 50,
                 last: -1,
             },
         };
@@ -220,6 +245,7 @@
             place: 33,
             drop: 6,
             take_chest: 8,
+            sell: 32,
         };
 
         const ItemType = {
@@ -685,21 +711,21 @@
             CHEST: 35,
             EMERALD_MACHINE: 60,
 
-            WOOD_DOOR_SPIKE: 43,
-            STONE_DOOR_SPIKE: 43,
-            GOLD_DOOR_SPIKE: 43,
-            DIAMOND_DOOR_SPIKE: 43,
-            AMETHYST_DOOR_SPIKE: 43,
-            REIDITE_DOOR_SPIKE: 43,
-            EMERALD_DOOR_SPIKE: 43,
+            WOOD_DOOR_SPIKE: 42,
+            STONE_DOOR_SPIKE: 42,
+            GOLD_DOOR_SPIKE: 42,
+            DIAMOND_DOOR_SPIKE: 42,
+            AMETHYST_DOOR_SPIKE: 42,
+            REIDITE_DOOR_SPIKE: 42,
+            EMERALD_DOOR_SPIKE: 42,
 
-            SPIKE: 43,
-            STONE_SPIKE: 43,
-            GOLD_SPIKE: 43,
-            DIAMOND_SPIKE: 43,
-            AMETHYST_SPIKE: 43,
-            REIDITE_SPIKE: 43,
-            EMERALD_SPIKE: 43,
+            SPIKE: 42,
+            STONE_SPIKE: 42,
+            GOLD_SPIKE: 42,
+            DIAMOND_SPIKE: 42,
+            AMETHYST_SPIKE: 42,
+            REIDITE_SPIKE: 42,
+            EMERALD_SPIKE: 42,
 
             WALL: 45,
             STONE_WALL: 45,
@@ -779,7 +805,7 @@
 
         const sizes = {
             s: 55,
-            m: 70,
+            m: 135,
             l: 85,
             xl: 100,
         };
@@ -1031,16 +1057,15 @@
                     .map((e) => {
                         const x = e[3] * 100,
                             y = e[4] * 100,
-                            r = MAP_R[e[1]][e[0]],
+                            r = MAP_R[e[1]][e[2]],
                             t = e[1];
 
-                        if (typeof x != "number" || typeof y != "number" || typeof r != "number") {
-                            console.log(x, y, r, t);
-                            debugger;
-                        }
+                        // if (typeof x != "number" || typeof y != "number" || typeof r != "number") {
+                        //     console.log(x, y, r, t);
+                        //     debugger;
+                        // }
                         return { x, y, r, t };
                     });
-                console.log(resources);
             }
 
             for (const n of Object.keys(ITEMS))
@@ -1083,7 +1108,7 @@
 
             for (const e of resources) {
                 if (typeof e.x != "number" || typeof e.y != "number" || typeof e.r != "number") {
-                    console.log("missing data for: ", e.t);
+                    // console.log("missing data for: ", e.t);
                     continue;
                 }
 
@@ -1100,7 +1125,6 @@
             const maxSteps = 60;
 
             const base = typeof settings.aimbot.angle == "number" ? settings.aimbot.angle : (angle ?? me.angle);
-            console.log(typeof settings.aimbot.angle == "number" ? "settings.aimbot.angle" : (angle ?? "me.angle"));
             const step = (stepDeg * Math.PI) / 180;
 
             // Try:
@@ -1146,11 +1170,11 @@
             return (Math.atan2(t.y - me.y, t.x - me.x) + PI2M) % PI2M;
         }
 
-        function get_closest(me, max) {
+        function get_closest_player(me, max) {
             let dist = max || Infinity;
             let closest = null;
             for (const t of world[vars.units][ITEMS.PLAYERS]) {
-                if (t.pid == user.id || user[vars.team].includes(t.pid)) continue;
+                if (t.pid == user.id || user[vars.team].includes(t.pid) || me.fly != t.fly) continue;
                 const d = calcDist(me, t);
 
                 if (d < dist) {
