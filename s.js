@@ -82,13 +82,13 @@
             }
             // auto land
             if (me.vehicle)
-                if (me.fly) settings.auto_land.enabled = true;
-                else if (settings.auto_land.enabled)
+                if (me.fly) settings.auto_land.active = true;
+                else if (settings.auto_land.active)
                     if (me.vehicle == ItemType.NIMBUS) {
-                        settings.auto_land.enabled = false;
+                        settings.auto_land.active = false;
                         sendAymen([packets.equipe, me.vehicle]);
                     } else if (me.speed <= 100) {
-                        settings.auto_land.enabled = false;
+                        settings.auto_land.active = false;
                         sendAymen([packets.equipe, me.vehicle]);
                     }
 
@@ -174,10 +174,13 @@
         };
         const settings = {
             auto_land: {
-                cd: 200,
                 last: -1,
                 v: 0,
                 enabled: false,
+                draw: true,
+                k: "Numpad1",
+                type: "press",
+                active: false,
             },
             auto_spike: {
                 k: "Space",
@@ -1167,11 +1170,6 @@
             for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
         });
 
-        function adjustAngle(angle, increment = 0) {
-            const MAX_ANGLE = 256;
-            return (((angle + increment) % MAX_ANGLE) + MAX_ANGLE) % MAX_ANGLE;
-        }
-
         function calcAngle(me, t) {
             return (Math.atan2(t.y - me.y, t.x - me.x) + PI2M) % PI2M;
         }
@@ -1180,7 +1178,7 @@
             let dist = max || Infinity;
             let closest = null;
             for (const t of world[vars.units][ITEMS.PLAYERS]) {
-                if (t.pid == user.id || user[vars.team].includes(t.pid) || me.fly != t.fly) continue;
+                if (t.pid == user.id || user[vars.team].includes(t.pid) || me.fly != t.fly || t.clothe == ItemType.WINTER_PEASANT) continue;
                 const d = calcDist(me, t);
 
                 if (d < dist) {
