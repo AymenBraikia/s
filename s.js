@@ -81,7 +81,7 @@
                 }
             }
             // auto land
-            if (me.vehicle)
+            if (me.vehicle && settings.auto_land.enabled)
                 if (me.fly) settings.auto_land.active = true;
                 else if (settings.auto_land.active)
                     if (me.vehicle == ItemType.NIMBUS) {
