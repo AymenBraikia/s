@@ -9,7 +9,7 @@
 
         async function run_time() {
             requestAnimationFrame(run_time);
-            if (!window.user || !window.world) return;
+            if (!window.user || !window.world || user.id == 0) return;
 
             const timestamp = Date.now();
 
@@ -24,6 +24,14 @@
 
             draw_ui();
 
+            // timers
+            if (me.action & STATE.HEAL) {
+                // afk spots
+                if (!(me.x > 5900 && me.y > 5200 && me.x < 7700 && me.y < 5200)) {
+                }
+            }
+
+            // drop sword
             if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) sendAymen([packets.drop, me.right]);
 
             // auto spike
@@ -81,7 +89,7 @@
                 }
             }
             // auto land
-            if (me.vehicle && settings.auto_land.enabled)
+            if (me.vehicle && settings.auto_land.enabled) {
                 if (me.fly) settings.auto_land.active = true;
                 else if (settings.auto_land.active)
                     if (me.vehicle == ItemType.NIMBUS) {
@@ -91,10 +99,12 @@
                         settings.auto_land.active = false;
                         sendAymen([packets.equipe, me.vehicle]);
                     }
+            }
 
             if (settings.aimbot.enabled) {
                 if (weapons.has(me.right)) {
                     if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
+                        settings.aimbot.attack = me.action & STATE.ATTACK ? true : false;
                         const target = get_closest_player(me, get_range(me.right));
                         settings.aimbot.target = target;
 
@@ -173,6 +183,23 @@
             SPIKE: 35,
         };
         const settings = {
+            show_range: {
+                enabled: false,
+                draw: true,
+                k: "Numpad2",
+                type: "press",
+            },
+            // auto_respawn: {
+            //     enabled: false,
+            //     draw: true,
+            //     k: "Numpad0",
+            //     type: "press",
+            // },
+            timers: {
+                orange_gem: null,
+                emerald: null,
+                bandage: null,
+            },
             auto_land: {
                 last: -1,
                 v: 0,
@@ -956,6 +983,7 @@
         const sword_range = 135,
             spear_range = 197,
             pirate_range = 140,
+            wrench_range = 113,
             bow_range = 1500;
 
         const get_range = (r) => {
@@ -1275,26 +1303,33 @@
 
             ctx.restore();
 
-            if (settings.aimbot.enabled) {
+            if (settings.aimbot.enabled || settings.show_range.enabled) {
                 ctx.save();
 
                 ctx.lineWidth = 3;
                 ctx.globalAlpha = 0.6;
 
-                ctx.strokeStyle = get_closest_player(me, sword_range + (me.fly ? 20 : 0)) ? "lime" : "red";
-                ctx.beginPath();
-                ctx.arc(cam_x, cam_y, sword_range + (me.fly ? 20 : 0), 0, PI2M);
-                ctx.stroke();
+                if (me.right != ItemType.WRENCH && me.right != ItemType.GOLD_WRENCH) {
+                    ctx.strokeStyle = get_closest_player(me, sword_range + (me.fly ? 20 : 0)) ? "lime" : "red";
+                    ctx.beginPath();
+                    ctx.arc(cam_x, cam_y, sword_range + (me.fly ? 20 : 0), 0, PI2M);
+                    ctx.stroke();
 
-                ctx.strokeStyle = get_closest_player(me, pirate_range + (me.fly ? 20 : 0)) ? "lime" : "red";
-                ctx.beginPath();
-                ctx.arc(cam_x, cam_y, pirate_range + (me.fly ? 20 : 0), 0, PI2M);
-                ctx.stroke();
+                    ctx.strokeStyle = get_closest_player(me, pirate_range + (me.fly ? 20 : 0)) ? "lime" : "red";
+                    ctx.beginPath();
+                    ctx.arc(cam_x, cam_y, pirate_range + (me.fly ? 20 : 0), 0, PI2M);
+                    ctx.stroke();
 
-                ctx.strokeStyle = get_closest_player(me, spear_range + (me.fly ? 18 : 0)) ? "lime" : "red";
-                ctx.beginPath();
-                ctx.arc(cam_x, cam_y, spear_range + (me.fly ? 18 : 0), 0, PI2M);
-                ctx.stroke();
+                    ctx.strokeStyle = get_closest_player(me, spear_range + (me.fly ? 18 : 0)) ? "lime" : "red";
+                    ctx.beginPath();
+                    ctx.arc(cam_x, cam_y, spear_range + (me.fly ? 18 : 0), 0, PI2M);
+                    ctx.stroke();
+                } else {
+                    ctx.strokeStyle = "red";
+                    ctx.beginPath();
+                    ctx.arc(cam_x, cam_y, wrench_range, me.angle + -PI2M / 13, me.angle + PI2M / 13);
+                    ctx.stroke();
+                }
 
                 ctx.restore();
             }
@@ -1320,6 +1355,59 @@
                 ctx.fillText(t, cam_x - r.width / 2, cam_y + 50);
                 ctx.restore();
             }
+
+            const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
+
+            if (doors.length && settings.show_range.enabled)
+                for (const door of doors) {
+                    ctx.save();
+
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = calcDist(me, door) <= wrench_range + 40 ? "lime" : "red";
+                    ctx.beginPath();
+
+                    const x = user[vars.cam].x + door.x,
+                        y = user[vars.cam].y + door.y;
+
+                    ctx.arc(x, y, 40, 0, PI2M);
+                    ctx.stroke();
+
+                    ctx.restore();
+                }
+
+            // if (world[vars.units][ITEMS.CHEST].length) {
+            //     ctx.save();
+            //     ctx.font = "20px Baloo Paaji";
+            //     ctx.textBaseline = "top";
+            //     ctx.textAlign = "left";
+            //     ctx.globalAlpha = 0.8;
+
+            //     ctx.lineWidth = 4;
+            //     ctx.strokeStyle = "black";
+            //     ctx.fillStyle = "white";
+
+            //     for (const chest of world[vars.units][ITEMS.CHEST]) {
+            //         ctx.save();
+            //         const img = window.game[vars.buttons][chest.extra].info.img[0];
+
+            //         const x = user[vars.cam].x + chest.x - img.width / 2,
+            //             y = user[vars.cam].y + chest.y - img.height / 2,
+            //             s = window.ss ?? 50;
+
+            //         if (!img.isLoaded) img.tryLoad();
+
+            //         ctx.translate(x, y);
+            //         window.rot && ctx.rotate(chest.angle);
+            //         ctx.drawImage(img, 0, 0, s, s);
+
+            //         ctx.strokeText("x" + chest.info, s / 2, s / 2);
+
+            //         ctx.fillText("x" + chest.info, s / 2, s / 2);
+
+            //         ctx.restore();
+            //     }
+            //     ctx.restore();
+            // }
         }
 
         run_time();
