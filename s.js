@@ -170,7 +170,7 @@
                 settings.auto_sell.last = timestamp;
                 const amounts = user[vars.inv].n;
 
-                if (amounts[ItemType.COOKED_MEAT]) sendAymen([packets.sell, amounts[ItemType.COOKED_MEAT], sell_ids.MEAT]);
+                // if (amounts[ItemType.COOKED_MEAT]) sendAymen([packets.sell, amounts[ItemType.COOKED_MEAT], sell_ids.MEAT]);
                 if (amounts[ItemType.COOKIE]) sendAymen([packets.sell, amounts[ItemType.COOKIE], sell_ids.COOKIE]);
                 if (amounts[ItemType.SANDWICH]) sendAymen([packets.sell, amounts[ItemType.SANDWICH], sell_ids.SANDWICH]);
                 if (amounts[ItemType.CAKE]) sendAymen([packets.sell, amounts[ItemType.CAKE], sell_ids.CAKE]);
