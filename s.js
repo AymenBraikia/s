@@ -59,17 +59,16 @@
                         settings.auto_spike.last = timestamp;
                         user[vars.craft].preview = -2;
                         settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
-                    } else {
-                        const angle = Math.floor((((me.angle + PI2M) % PI2M) * 255) / PI2M);
-                        user[vars.craft].preview = spike;
-
-                        sendAymen([packets.angle, angle]);
-                        sendAymen([packets.place, spike, angle, 0]);
-
-                        settings.auto_spike.last = timestamp;
-                        user[vars.craft].preview = -2;
-                        settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
                     }
+                    const angle = Math.floor((((me.angle + PI2M) % PI2M) * 255) / PI2M);
+                    user[vars.craft].preview = spike;
+
+                    sendAymen([packets.angle, angle]);
+                    sendAymen([packets.place, spike, angle, 0]);
+
+                    settings.auto_spike.last = timestamp;
+                    user[vars.craft].preview = -2;
+                    settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
                 }
             }
             // auto door
@@ -97,17 +96,16 @@
                         settings.auto_door.last = timestamp;
                         user[vars.craft].preview = -2;
                         settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
-                    } else {
-                        const angle = Math.floor((((me.angle + PI2M) % PI2M) * 255) / PI2M);
-                        user[vars.craft].preview = spike;
-
-                        sendAymen([packets.angle, angle]);
-                        sendAymen([packets.place, spike, angle, 0]);
-
-                        settings.auto_door.last = timestamp;
-                        user[vars.craft].preview = -2;
-                        settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
                     }
+                    const angle = Math.floor((((me.angle + PI2M) % PI2M) * 255) / PI2M);
+                    user[vars.craft].preview = spike;
+
+                    sendAymen([packets.angle, angle]);
+                    sendAymen([packets.place, spike, angle, 0]);
+
+                    settings.auto_door.last = timestamp;
+                    user[vars.craft].preview = -2;
+                    settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
                 }
             }
             // auto land
