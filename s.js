@@ -102,7 +102,7 @@
                             let angle = calcAngle(me, target);
                             if (settings.aimbot.org_angle != angle) {
                                 settings.aimbot.org_angle = angle;
-                                angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
+                                if (!bows.has(me.right)) angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
                                 settings.aimbot.angle = angle;
 
                                 //     sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
@@ -812,6 +812,26 @@
             ItemType.SAPPHIRE_BOW,
         ]);
 
+        const bows = new Set([
+            ItemType.WOOD_BOW,
+            ItemType.STONE_BOW,
+            ItemType.GOLD_BOW,
+            ItemType.DIAMOND_BOW,
+            ItemType.AMETHYST_BOW,
+            ItemType.REIDITE_BOW,
+            ItemType.DRAGON_BOW,
+
+            ItemType.IRON_BOW,
+            ItemType.COPPER_BOW,
+            ItemType.TOPAZ_BOW,
+            ItemType.AQUAMARINE_BOW,
+            ItemType.RUBY_BOW,
+            ItemType.COAL_BOW,
+            ItemType.EMERALD_BOW,
+            ItemType.JADE_BOW,
+            ItemType.SAPPHIRE_BOW,
+        ]);
+
         const sizes = {
             s: 55,
             m: 135,
@@ -936,7 +956,7 @@
         const sword_range = 135,
             spear_range = 197,
             pirate_range = 140,
-            bow_range = 700;
+            bow_range = 1500;
 
         const get_range = (r) => {
             switch (r) {
