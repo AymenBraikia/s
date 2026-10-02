@@ -114,15 +114,17 @@
                             let angle = calcAngle(me, target);
                             if (settings.aimbot.org_angle != angle) {
                                 settings.aimbot.org_angle = angle;
+
                                 if (!bows.has(me.right)) angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
+
                                 settings.aimbot.angle = angle;
 
-                                //     sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+                                sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
                             }
 
                             if (!settings.aimbot.attack) {
                                 settings.aimbot.attack = true;
-                                sendAymen([packets.attack, [packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]]);
+                                sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
                             }
 
                             settings.aimbot.last = timestamp;
