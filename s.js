@@ -941,82 +941,82 @@
         const get_range = (r) => {
             switch (r) {
                 case ItemType.WOOD_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.STONE_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.GOLD_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.DIAMOND_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.AMETHYST_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.REIDITE_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.DRAGON_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.LAVA_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.CURSED_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.PIRATE_SWORD:
-                    return pirate_range;
+                    return pirate_range + (me.fly ? 20 : 0);
 
                 case ItemType.IRON_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.COPPER_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.TOPAZ_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.AQUAMARINE_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.RUBY_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.COAL_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.EMERALD_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.JADE_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
                 case ItemType.SAPPHIRE_SWORD:
-                    return sword_range;
+                    return sword_range + (me.fly ? 20 : 0);
 
                 case ItemType.WOOD_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.STONE_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.GOLD_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.DIAMOND_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.AMETHYST_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.REIDITE_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.DRAGON_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.LAVA_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.CRAB_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
 
                 case ItemType.IRON_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.COPPER_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.TOPAZ_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.AQUAMARINE_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.RUBY_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.COAL_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.EMERALD_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.JADE_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
                 case ItemType.SAPPHIRE_SPEAR:
-                    return spear_range;
+                    return spear_range + (me.fly ? 18 : 0);
 
                 case ItemType.WOOD_BOW:
                     return bow_range;
@@ -1261,19 +1261,19 @@
                 ctx.lineWidth = 3;
                 ctx.globalAlpha = 0.6;
 
-                ctx.strokeStyle = get_closest_player(me, sword_range) ? "lime" : "red";
+                ctx.strokeStyle = get_closest_player(me, sword_range + (me.fly ? 20 : 0)) ? "lime" : "red";
                 ctx.beginPath();
-                ctx.arc(cam_x, cam_y, sword_range, 0, PI2M);
+                ctx.arc(cam_x, cam_y, sword_range + (me.fly ? 20 : 0), 0, PI2M);
                 ctx.stroke();
 
-                ctx.strokeStyle = get_closest_player(me, pirate_range) ? "lime" : "red";
+                ctx.strokeStyle = get_closest_player(me, pirate_range + (me.fly ? 20 : 0)) ? "lime" : "red";
                 ctx.beginPath();
-                ctx.arc(cam_x, cam_y, pirate_range, 0, PI2M);
+                ctx.arc(cam_x, cam_y, pirate_range + (me.fly ? 20 : 0), 0, PI2M);
                 ctx.stroke();
 
-                ctx.strokeStyle = get_closest_player(me, spear_range) ? "lime" : "red";
+                ctx.strokeStyle = get_closest_player(me, spear_range + (me.fly ? 18 : 0)) ? "lime" : "red";
                 ctx.beginPath();
-                ctx.arc(cam_x, cam_y, spear_range, 0, PI2M);
+                ctx.arc(cam_x, cam_y, spear_range + (me.fly ? 18 : 0), 0, PI2M);
                 ctx.stroke();
 
                 ctx.restore();
