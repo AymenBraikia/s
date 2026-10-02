@@ -59,6 +59,16 @@
                         settings.auto_spike.last = timestamp;
                         user[vars.craft].preview = -2;
                         settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
+                    } else {
+                        const angle = Math.floor((((me.angle + PI2M) % PI2M) * 255) / PI2M);
+                        user[vars.craft].preview = spike;
+
+                        sendAymen([packets.angle, angle]);
+                        sendAymen([packets.place, spike, angle, 0]);
+
+                        settings.auto_spike.last = timestamp;
+                        user[vars.craft].preview = -2;
+                        settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
                     }
                 }
             }
@@ -76,14 +86,26 @@
                 else if (amounts[ItemType.WOOD_DOOR_SPIKE]) ((spike = ItemType.WOOD_DOOR_SPIKE), (type = ITEMS.WOOD_DOOR_SPIKE));
 
                 if (spike) {
-                    const angle = Math.floor((((best_angle(me, type) + PI2M) % PI2M) * 255) / PI2M);
-                    if (angle) {
+                    const adjust = best_angle(me, type);
+                    if (adjust) {
+                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
                         user[vars.craft].preview = spike;
+
                         sendAymen([packets.angle, angle]);
                         sendAymen([packets.place, spike, angle, 0]);
 
-                        user[vars.craft].preview = -2;
                         settings.auto_door.last = timestamp;
+                        user[vars.craft].preview = -2;
+                        settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
+                    } else {
+                        const angle = Math.floor((((me.angle + PI2M) % PI2M) * 255) / PI2M);
+                        user[vars.craft].preview = spike;
+
+                        sendAymen([packets.angle, angle]);
+                        sendAymen([packets.place, spike, angle, 0]);
+
+                        settings.auto_door.last = timestamp;
+                        user[vars.craft].preview = -2;
                         settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
                     }
                 }
