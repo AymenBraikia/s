@@ -179,8 +179,8 @@
         }
 
         const sell_ids = {
-            BREAD: 15,
-            SANDWICH: 14,
+            BREAD: 16,
+            SANDWICH: 15,
             MEAT: 13,
             COOKIE: 12,
             CAKE: 11,
