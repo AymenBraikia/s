@@ -987,7 +987,7 @@
         const sword_range = 135,
             spear_range = 197,
             pirate_range = 140,
-            wrench_range = 113,
+            wrench_range = 110,
             bow_range = 1500;
 
         const get_range = (r) => {
