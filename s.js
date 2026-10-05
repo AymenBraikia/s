@@ -1,182 +1,24 @@
 (() => {
     try {
-        const canvas = document.querySelector("canvas");
-        const ctx = canvas.getContext("2d");
+        const calcDist = (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y),
+            sleep = async (ms) => new Promise((res) => setTimeout(res, ms)),
+            get_num_in_range = ({ min, max }) => Math.round(min + Math.random() * (max - min)),
+            calcAngle = (me, t) => (Math.atan2(t.y - me.y, t.x - me.x) + PI2M) % PI2M,
+            void_function = () => {};
 
-        const PI2M = 2 * window.Math.PI;
-        let vars = null;
-        let me = null;
+        const canvas = document.querySelector("canvas"),
+            ctx = canvas.getContext("2d"),
+            PI2M = 2 * window.Math.PI,
+            sword_range = 135,
+            spear_range = 195,
+            pirate_range = 140,
+            wrench_range = 110,
+            bow_range = 1500;
 
-        async function run_time() {
-            requestAnimationFrame(run_time);
-            if (!window.user || !window.world || user.id == 0) return;
-
-            const timestamp = Date.now();
-
-            for (const p of world[vars.units][ITEMS.PLAYERS]) {
-                if (p.pid == user.id) {
-                    me = p;
-                    break;
-                }
-            }
-            if (!me) return;
-            window.aymen = me;
-
-            draw_ui();
-
-            // timers
-            if (me.action & STATE.HEAL) {
-                // afk spots
-                if (!(me.x > 5900 && me.y > 5200 && me.x < 7700 && me.y < 5200)) {
-                }
-            }
-
-            // drop sword
-            if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) sendAymen([packets.drop, me.right]);
-
-            // auto spike
-            if (settings.auto_spike.enabled && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
-                let spike, type;
-
-                const amounts = user[vars.inv].n;
-                if (amounts[ItemType.EMERALD_SPIKE]) ((spike = ItemType.EMERALD_SPIKE), (type = ITEMS.EMERALD_SPIKE));
-                else if (amounts[ItemType.REIDITE_SPIKE]) ((spike = ItemType.REIDITE_SPIKE), (type = ITEMS.REIDITE_SPIKE));
-                else if (amounts[ItemType.AMETHYST_SPIKE]) ((spike = ItemType.AMETHYST_SPIKE), (type = ITEMS.AMETHYST_SPIKE));
-                else if (amounts[ItemType.DIAMOND_SPIKE]) ((spike = ItemType.DIAMOND_SPIKE), (type = ITEMS.DIAMOND_SPIKE));
-                else if (amounts[ItemType.GOLD_SPIKE]) ((spike = ItemType.GOLD_SPIKE), (type = ITEMS.GOLD_SPIKE));
-                else if (amounts[ItemType.STONE_SPIKE]) ((spike = ItemType.STONE_SPIKE), (type = ITEMS.STONE_SPIKE));
-                else if (amounts[ItemType.WOOD_SPIKE]) ((spike = ItemType.WOOD_SPIKE), (type = ITEMS.SPIKE));
-
-                if (spike) {
-                    const adjust = best_angle(me, type);
-                    if (adjust) {
-                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
-                        user[vars.craft].preview = spike;
-
-                        sendAymen([packets.angle, angle]);
-                        sendAymen([packets.place, spike, angle, 0]);
-
-                        settings.auto_spike.last = timestamp;
-                        user[vars.craft].preview = -2;
-                        settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
-                    }
-                }
-            }
-            // auto door
-            if (settings.auto_door.enabled && timestamp - settings.auto_door.last > settings.auto_door.cd) {
-                let spike, type;
-
-                const amounts = user[vars.inv].n;
-                if (amounts[ItemType.EMERALD_DOOR_SPIKE]) ((spike = ItemType.EMERALD_DOOR_SPIKE), (type = ITEMS.EMERALD_DOOR_SPIKE));
-                else if (amounts[ItemType.REIDITE_DOOR_SPIKE]) ((spike = ItemType.REIDITE_DOOR_SPIKE), (type = ITEMS.REIDITE_DOOR_SPIKE));
-                else if (amounts[ItemType.AMETHYST_DOOR_SPIKE]) ((spike = ItemType.AMETHYST_DOOR_SPIKE), (type = ITEMS.AMETHYST_DOOR_SPIKE));
-                else if (amounts[ItemType.DIAMOND_DOOR_SPIKE]) ((spike = ItemType.DIAMOND_DOOR_SPIKE), (type = ITEMS.DIAMOND_DOOR_SPIKE));
-                else if (amounts[ItemType.GOLD_DOOR_SPIKE]) ((spike = ItemType.GOLD_DOOR_SPIKE), (type = ITEMS.GOLD_DOOR_SPIKE));
-                else if (amounts[ItemType.STONE_DOOR_SPIKE]) ((spike = ItemType.STONE_DOOR_SPIKE), (type = ITEMS.STONE_DOOR_SPIKE));
-                else if (amounts[ItemType.WOOD_DOOR_SPIKE]) ((spike = ItemType.WOOD_DOOR_SPIKE), (type = ITEMS.WOOD_DOOR_SPIKE));
-
-                if (spike) {
-                    const adjust = best_angle(me, type);
-                    if (adjust) {
-                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
-                        user[vars.craft].preview = spike;
-
-                        sendAymen([packets.angle, angle]);
-                        sendAymen([packets.place, spike, angle, 0]);
-
-                        settings.auto_door.last = timestamp;
-                        user[vars.craft].preview = -2;
-                        settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
-                    }
-                }
-            }
-            // auto land
-            if (me.vehicle && settings.auto_land.enabled) {
-                if (me.fly) settings.auto_land.active = true;
-                else if (settings.auto_land.active)
-                    if (me.vehicle == ItemType.NIMBUS) {
-                        settings.auto_land.active = false;
-                        sendAymen([packets.equipe, me.vehicle]);
-                    } else if (me.speed <= 100) {
-                        settings.auto_land.active = false;
-                        sendAymen([packets.equipe, me.vehicle]);
-                    }
-            }
-
-            if (settings.aimbot.enabled) {
-                if (weapons.has(me.right)) {
-                    settings.aimbot.attack = me.action & STATE.ATTACK ? true : false;
-                    const target = get_closest_player(me, get_range(me.right));
-                    settings.aimbot.target = target;
-                    let angle = calcAngle(me, target);
-
-                    if (settings.aimbot.org_angle != angle) {
-                        settings.aimbot.org_angle = angle;
-
-                        if (!bows.has(me.right)) angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
-
-                        settings.aimbot.angle = angle;
-                    }
-
-                    if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
-                        if (target) {
-                            sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-
-                            if (!settings.aimbot.attack) {
-                                settings.aimbot.attack = true;
-                                sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-                            }
-
-                            settings.aimbot.last = timestamp;
-                        } else if (settings.aimbot.attack) {
-                            settings.aimbot.attack = false;
-                            settings.aimbot.angle = null;
-                            settings.aimbot.org_angle = null;
-                            sendAymen([packets.stop_attack]);
-                        }
-                    }
-                }
-            } else if (settings.aimbot.attack) {
-                if (settings.aimbot.attack) sendAymen([packets.stop_attack]);
-                settings.aimbot.attack = false;
-                settings.aimbot.angle = null;
-                settings.aimbot.org_angle = null;
-            }
-
-            if (settings.hide_afk.enabled) {
-                for (const p of world[vars.units][ITEMS.PLAYERS]) {
-                    // prop
-                    if (!vars.draw_player) for (const e in p) typeof p[e] == "function" && p[e].name == "draw_player"((vars.draw_player = e));
-
-                    if (!p.drawhooked) {
-                        p.originalDraw = p[vars.draw_player];
-                        p.drawhooked = true;
-                    }
-
-                    if (p.right == ItemType.WOOD_SHIELD && p[vars.draw_player] != void_function) p[vars.draw_player] = void_function;
-                    if (p.right != ItemType.WOOD_SHIELD && p[vars.draw_player] == void_function) p[vars.draw_player] = p.originalDraw;
-                }
-                settings.hide_afk.set = true;
-            } else if (settings.hide_afk.set) {
-                settings.hide_afk.set = false;
-                for (const p of world[vars.units][ITEMS.PLAYERS]) p[vars.draw_player] = p.originalDraw;
-            }
-
-            if (settings.steal_chest.enabled && timestamp - settings.steal_chest.last > settings.steal_chest.cd && get_closest_chest(me)) {
-                settings.steal_chest.last = timestamp;
-                sendAymen([packets.take_chest, 1e8]);
-            }
-            if (settings.auto_sell.enabled && timestamp - settings.auto_sell.last > settings.auto_sell.cd) {
-                settings.auto_sell.last = timestamp;
-                const amounts = user[vars.inv].n;
-
-                // if (amounts[ItemType.COOKED_MEAT]) sendAymen([packets.sell, amounts[ItemType.COOKED_MEAT], sell_ids.MEAT]);
-                if (amounts[ItemType.COOKIE]) sendAymen([packets.sell, amounts[ItemType.COOKIE], sell_ids.COOKIE]);
-                if (amounts[ItemType.SANDWICH]) sendAymen([packets.sell, amounts[ItemType.SANDWICH], sell_ids.SANDWICH]);
-                if (amounts[ItemType.CAKE]) sendAymen([packets.sell, amounts[ItemType.CAKE], sell_ids.CAKE]);
-                if (amounts[ItemType.BREAD]) sendAymen([packets.sell, amounts[ItemType.BREAD], sell_ids.BREAD]);
-            }
-        }
+        let vars = null,
+            me = null,
+            gui = null,
+            resources;
 
         const sell_ids = {
             BREAD: 16,
@@ -199,11 +41,11 @@
             //     k: "Numpad0",
             //     type: "press",
             // },
-            timers: {
-                orange_gem: null,
-                emerald: null,
-                bandage: null,
-            },
+            // timers: {
+            //     orange_gem: null,
+            //     emerald: null,
+            //     bandage: null,
+            // },
             auto_land: {
                 last: -1,
                 v: 0,
@@ -982,13 +824,13 @@
                 3: sizes.xl,
             },
         };
-        let resources;
-
-        const sword_range = 135,
-            spear_range = 197,
-            pirate_range = 140,
-            wrench_range = 110,
-            bow_range = 1500;
+        const noise = {
+            inc_chance: 50,
+            v: 0,
+            max: 10,
+            min: -10,
+            gap: 20,
+        };
 
         const get_range = (r) => {
             switch (r) {
@@ -1205,27 +1047,6 @@
             return null;
         }
 
-        const sleep = async (ms) => new Promise((res) => setTimeout(res, ms));
-        const get_num_in_range = ({ min, max }) => Math.round(min + Math.random() * (max - min));
-        const randomSleep = async ({ min, max }) => await sleep(get_num_in_range({ min, max }));
-
-        document.addEventListener("keydown", (k) => {
-            if (user[vars.cmdInput].open || user[vars.chatInput].open) return;
-            for (const s of Object.values(settings)) {
-                if (s.type == "press") continue;
-                if (k.code == s.k) s.enabled = true;
-            }
-        });
-
-        document.addEventListener("keyup", (k) => {
-            if (user[vars.cmdInput].open || user[vars.chatInput].open) return;
-            for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
-        });
-
-        function calcAngle(me, t) {
-            return (Math.atan2(t.y - me.y, t.x - me.x) + PI2M) % PI2M;
-        }
-
         function get_closest_player(me, max) {
             let dist = max || Infinity;
             let closest = null;
@@ -1257,7 +1078,6 @@
             return closest;
         }
 
-        const calcDist = (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y);
         const format_number = (num) => {
             if (num < 1_000) return num.toString();
             if (num < 1_000_000) return `${(num / 1_000).toFixed(2).replace(/\.?0+$/, "")}k`;
@@ -1266,6 +1086,212 @@
             return `${(num / 1_000_000_000_000).toFixed(2).replace(/\.?0+$/, "")}t`;
         };
 
+        function randomize(original) {
+            const roll = Math.random() * 100;
+            let direction = roll > noise.inc_chance ? 1 : -1;
+
+            noise.inc_chance = ((noise.v + 1) * 100) / noise.gap;
+
+            noise.v = noise.v + Math.random() * (Math.random() * 5) * direction;
+
+            return original + noise.v;
+        }
+
+        document.addEventListener("keydown", (k) => {
+            if (user[vars.cmdInput].open || user[vars.chatInput].open || (!user && user.id == 0)) return;
+            for (const s of Object.values(settings)) {
+                if (s.type == "press") continue;
+                if (k.code == s.k) s.enabled = true;
+            }
+            // gui.update();
+        });
+
+        document.addEventListener("keyup", (k) => {
+            if (user[vars.cmdInput].open || user[vars.chatInput].open || (!user && user.id == 0)) return;
+            for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
+            gui.update();
+        });
+
+        // script logic
+        function run_time() {
+            requestAnimationFrame(run_time);
+            if (!window.user || !window.world || user.id == 0) return;
+
+            const timestamp = Date.now();
+
+            for (const p of world[vars.units][ITEMS.PLAYERS]) {
+                if (p.pid == user.id) {
+                    me = p;
+                    break;
+                }
+            }
+            if (!me) return;
+            window.aymen = me;
+
+            draw_ui();
+
+            // timers
+            if (me.action & STATE.HEAL) {
+                // afk spots
+                if (!(me.x > 5900 && me.y > 5200 && me.x < 7700 && me.y < 5200)) {
+                }
+            }
+
+            // drop sword
+            if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) sendAymen([packets.drop, me.right]);
+
+            // auto spike
+            if (settings.auto_spike.enabled && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
+                let spike, type;
+
+                const amounts = user[vars.inv].n;
+                if (amounts[ItemType.EMERALD_SPIKE]) ((spike = ItemType.EMERALD_SPIKE), (type = ITEMS.EMERALD_SPIKE));
+                else if (amounts[ItemType.REIDITE_SPIKE]) ((spike = ItemType.REIDITE_SPIKE), (type = ITEMS.REIDITE_SPIKE));
+                else if (amounts[ItemType.AMETHYST_SPIKE]) ((spike = ItemType.AMETHYST_SPIKE), (type = ITEMS.AMETHYST_SPIKE));
+                else if (amounts[ItemType.DIAMOND_SPIKE]) ((spike = ItemType.DIAMOND_SPIKE), (type = ITEMS.DIAMOND_SPIKE));
+                else if (amounts[ItemType.GOLD_SPIKE]) ((spike = ItemType.GOLD_SPIKE), (type = ITEMS.GOLD_SPIKE));
+                else if (amounts[ItemType.STONE_SPIKE]) ((spike = ItemType.STONE_SPIKE), (type = ITEMS.STONE_SPIKE));
+                else if (amounts[ItemType.WOOD_SPIKE]) ((spike = ItemType.WOOD_SPIKE), (type = ITEMS.SPIKE));
+
+                if (spike) {
+                    const adjust = best_angle(me, type);
+                    if (adjust) {
+                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+                        user[vars.craft].preview = spike;
+
+                        sendAymen([packets.angle, angle]);
+                        sendAymen([packets.place, spike, angle, 0]);
+
+                        settings.auto_spike.last = timestamp;
+                        user[vars.craft].preview = -2;
+                        settings.auto_spike.cd = get_num_in_range({ min: 50, max: 100 });
+                    }
+                }
+            }
+            // auto door
+            if (settings.auto_door.enabled && timestamp - settings.auto_door.last > settings.auto_door.cd) {
+                let spike, type;
+
+                const amounts = user[vars.inv].n;
+                if (amounts[ItemType.EMERALD_DOOR_SPIKE]) ((spike = ItemType.EMERALD_DOOR_SPIKE), (type = ITEMS.EMERALD_DOOR_SPIKE));
+                else if (amounts[ItemType.REIDITE_DOOR_SPIKE]) ((spike = ItemType.REIDITE_DOOR_SPIKE), (type = ITEMS.REIDITE_DOOR_SPIKE));
+                else if (amounts[ItemType.AMETHYST_DOOR_SPIKE]) ((spike = ItemType.AMETHYST_DOOR_SPIKE), (type = ITEMS.AMETHYST_DOOR_SPIKE));
+                else if (amounts[ItemType.DIAMOND_DOOR_SPIKE]) ((spike = ItemType.DIAMOND_DOOR_SPIKE), (type = ITEMS.DIAMOND_DOOR_SPIKE));
+                else if (amounts[ItemType.GOLD_DOOR_SPIKE]) ((spike = ItemType.GOLD_DOOR_SPIKE), (type = ITEMS.GOLD_DOOR_SPIKE));
+                else if (amounts[ItemType.STONE_DOOR_SPIKE]) ((spike = ItemType.STONE_DOOR_SPIKE), (type = ITEMS.STONE_DOOR_SPIKE));
+                else if (amounts[ItemType.WOOD_DOOR_SPIKE]) ((spike = ItemType.WOOD_DOOR_SPIKE), (type = ITEMS.WOOD_DOOR_SPIKE));
+
+                if (spike) {
+                    const adjust = best_angle(me, type);
+                    if (adjust) {
+                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+                        user[vars.craft].preview = spike;
+
+                        sendAymen([packets.angle, angle]);
+                        sendAymen([packets.place, spike, angle, 0]);
+
+                        settings.auto_door.last = timestamp;
+                        user[vars.craft].preview = -2;
+                        settings.auto_door.cd = get_num_in_range({ min: 50, max: 100 });
+                    }
+                }
+            }
+            // auto land
+            if (me.vehicle && settings.auto_land.enabled) {
+                if (me.fly) settings.auto_land.active = true;
+                else if (settings.auto_land.active)
+                    if (me.vehicle == ItemType.NIMBUS) {
+                        settings.auto_land.active = false;
+                        sendAymen([packets.equipe, me.vehicle]);
+                    } else if (me.speed <= 100) {
+                        settings.auto_land.active = false;
+                        sendAymen([packets.equipe, me.vehicle]);
+                    }
+            }
+
+            if (settings.aimbot.enabled) {
+                if (weapons.has(me.right)) {
+                    settings.aimbot.attack = me.action & STATE.ATTACK ? true : false;
+                    const target = get_closest_player(me, get_range(me.right));
+                    if (target) {
+                        settings.aimbot.target = target;
+                        let angle = calcAngle(me, target);
+
+                        if (settings.aimbot.org_angle != angle) {
+                            settings.aimbot.org_angle = angle;
+
+                            if (!bows.has(me.right)) angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
+
+                            settings.aimbot.angle = angle;
+                        }
+
+                        if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
+                            if (target) {
+                                sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+
+                                if (!settings.aimbot.attack) {
+                                    settings.aimbot.attack = true;
+                                    sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+                                }
+
+                                settings.aimbot.last = timestamp;
+                            } else if (settings.aimbot.attack) {
+                                settings.aimbot.attack = false;
+                                settings.aimbot.angle = null;
+                                settings.aimbot.org_angle = null;
+                                sendAymen([packets.stop_attack]);
+                            }
+                        }
+                    } else {
+                        if (settings.aimbot.attack) sendAymen([packets.stop_attack]);
+                        settings.aimbot.attack = false;
+                        settings.aimbot.angle = null;
+                        settings.aimbot.org_angle = null;
+                    }
+                }
+            } else if (settings.aimbot.attack) {
+                if (settings.aimbot.attack) sendAymen([packets.stop_attack]);
+                settings.aimbot.attack = false;
+                settings.aimbot.angle = null;
+                settings.aimbot.org_angle = null;
+            }
+
+            if (settings.hide_afk.enabled) {
+                for (const p of world[vars.units][ITEMS.PLAYERS]) {
+                    // prop
+                    if (!vars.draw_player) for (const e in p) typeof p[e] == "function" && p[e].name == "draw_player"((vars.draw_player = e));
+
+                    if (!p.drawhooked) {
+                        p.originalDraw = p[vars.draw_player];
+                        p.drawhooked = true;
+                    }
+
+                    if (p.right == ItemType.WOOD_SHIELD && p[vars.draw_player] != void_function) p[vars.draw_player] = void_function;
+                    if (p.right != ItemType.WOOD_SHIELD && p[vars.draw_player] == void_function) p[vars.draw_player] = p.originalDraw;
+                }
+                settings.hide_afk.set = true;
+            } else if (settings.hide_afk.set) {
+                settings.hide_afk.set = false;
+                for (const p of world[vars.units][ITEMS.PLAYERS]) p[vars.draw_player] = p.originalDraw;
+            }
+
+            if (settings.steal_chest.enabled && timestamp - settings.steal_chest.last > settings.steal_chest.cd && get_closest_chest(me)) {
+                settings.steal_chest.last = timestamp;
+                sendAymen([packets.take_chest, 1e8]);
+            }
+            if (settings.auto_sell.enabled && timestamp - settings.auto_sell.last > settings.auto_sell.cd) {
+                settings.auto_sell.last = timestamp;
+                const amounts = user[vars.inv].n;
+
+                // if (amounts[ItemType.COOKED_MEAT]) sendAymen([packets.sell, amounts[ItemType.COOKED_MEAT], sell_ids.MEAT]);
+                if (amounts[ItemType.COOKIE]) sendAymen([packets.sell, amounts[ItemType.COOKIE], sell_ids.COOKIE]);
+                if (amounts[ItemType.SANDWICH]) sendAymen([packets.sell, amounts[ItemType.SANDWICH], sell_ids.SANDWICH]);
+                if (amounts[ItemType.CAKE]) sendAymen([packets.sell, amounts[ItemType.CAKE], sell_ids.CAKE]);
+                if (amounts[ItemType.BREAD]) sendAymen([packets.sell, amounts[ItemType.BREAD], sell_ids.BREAD]);
+            }
+        }
+
+        // ctx UI
         function draw_ui() {
             const cam_x = me.x + user[vars.cam].x,
                 cam_y = me.y + user[vars.cam].y;
@@ -1414,30 +1440,29 @@
             // }
         }
 
+        // html UI
+        // function initUI() {
+        //     gui = new window.GUI_MODULE();
+        //     gui.start();
+
+        //     gui.register({ type: "folder", label: "Visuals" });
+        //     gui.register({ type: "folder", label: "Misc" });
+        //     gui.register({ type: "folder", label: "Kits" });
+
+        //     gui.register({ type: "checkbox", label: "Show Range", folder: "Visuals", object: settings.show_range, prop: "enabled" });
+        //     gui.register({ type: "checkbox", label: "Hide AFK", folder: "Visuals", object: settings.hide_afk, prop: "enabled" });
+
+        //     gui.register({ type: "checkbox", label: "Auto Land", folder: "Misc", object: settings.auto_land, prop: "enabled" });
+        //     gui.register({ type: "checkbox", label: "Aimbot", folder: "Misc", object: settings.aimbot, prop: "enabled" });
+        //     gui.register({ type: "checkbox", label: "Steal Chest", folder: "Misc", object: settings.steal_chest, prop: "enabled" });
+        //     gui.register({ type: "checkbox", label: "Auto Sell", folder: "Misc", object: settings.auto_sell, prop: "enabled" });
+
+        //     gui.register({ type: "button", label: "Copy Free kit cmd", folder: "Kits", action: () => navigator.clipboard.writeText(`!kit_aob_eu freekit ${user.id}`) });
+        //     gui.register({ type: "button", label: "Copy Tag kit cmd", folder: "Kits", action: () => navigator.clipboard.writeText(`!kit_aob_eu tag ${user.id}`) });
+        // }
+
+        // initUI();
         run_time();
-
-        const noise = {
-            inc_chance: 50,
-            v: 0,
-            max: 10,
-            min: -10,
-            gap: 20,
-        };
-
-        function randomize(original) {
-            const roll = Math.random() * 100;
-            let direction = roll > noise.inc_chance ? 1 : -1;
-
-            // noise.inc_chance = ((noise.v + 20) * 100) / noise.gap;
-            noise.inc_chance = ((noise.v + 1) * 100) / noise.gap;
-
-            // noise.v = noise.v + Math.random() * (Math.random() * 10 + 5) * direction;
-            noise.v = noise.v + Math.random() * (Math.random() * 5) * direction;
-
-            return original + noise.v;
-        }
-
-        const void_function = () => {};
     } catch (error) {
         if (window.debugErr) console.error(error);
     }
