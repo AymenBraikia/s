@@ -1262,7 +1262,6 @@
 
             if (settings.aimbot.enabled) {
                 if (weapons.has(me.right)) {
-                    settings.aimbot.attack = me.action & STATE.ATTACK ? true : false;
                     const target = get_closest_player(me, get_range(me.right));
                     if (target) {
                         settings.aimbot.target = target;
@@ -1278,6 +1277,7 @@
 
                         if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
                             if (target) {
+                                settings.aimbot.attack = me.action & STATE.ATTACK ? true : false;
                                 sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
 
                                 if (!settings.aimbot.attack) {
@@ -1299,6 +1299,11 @@
                         settings.aimbot.angle = null;
                         settings.aimbot.org_angle = null;
                     }
+                } else if (settings.aimbot.attack) {
+                    if (settings.aimbot.attack) sendAymen([packets.stop_attack]);
+                    settings.aimbot.attack = false;
+                    settings.aimbot.angle = null;
+                    settings.aimbot.org_angle = null;
                 }
             } else if (settings.aimbot.attack) {
                 if (settings.aimbot.attack) sendAymen([packets.stop_attack]);
