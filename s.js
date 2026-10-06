@@ -132,7 +132,17 @@
             };
 
         function loadSettings() {
-            if (localStorage.getItem("settings")) return JSON.parse(localStorage.getItem("settings"));
+            try {
+                if (localStorage.getItem("settings")) {
+                    const s = JSON.parse(localStorage.getItem("settings"));
+                    s.aimbot.enabled = false;
+                    s.auto_spike.enabled = false;
+                    s.auto_door.enabled = false;
+                    s.steal_chest.enabled = false;
+                    return true;
+                }
+            } catch {}
+            return false;
         }
         function saveSettings() {
             localStorage.setItem("settings", JSON.stringify(settings));
@@ -168,12 +178,12 @@
                 k: "Numpad2",
                 type: "press",
             },
-            // auto_respawn: {
-            //     enabled: false,
-            //     draw: true,
-            //     k: "Numpad0",
-            //     type: "press",
-            // },
+            auto_respawn: {
+                enabled: false,
+                draw: true,
+                k: "Numpad0",
+                type: "press",
+            },
             // timers: {
             //     orange_gem: null,
             //     emerald: null,
@@ -1108,45 +1118,45 @@
             return original + noise.v;
         }
 
-        function handleSelect() {
-            let start = Date.now();
+        // function handleSelect() {
+        //     let start = Date.now();
 
-            settings.alts.select = true;
+        //     settings.alts.select = true;
 
-            const handleMove = (e) => {
-                const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
+        //     const handleMove = (e) => {
+        //         const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
 
-                for (const door of doors) {
-                    const x = door.x + user[vars.cam].x,
-                        y = door.y + user[vars.cam].y;
+        //         for (const door of doors) {
+        //             const x = door.x + user[vars.cam].x,
+        //                 y = door.y + user[vars.cam].y;
 
-                    if (calcDist({ x, y }, { x: e.clientX, y: e.clientY }) <= RADUIS.REIDITE_DOOR_SPIKE) door.selected = true;
-                    else door.selected = false;
-                }
-            };
-            const handleClick = (e) => {
-                if (Date.now() - start < 200) return;
+        //             if (calcDist({ x, y }, { x: e.clientX, y: e.clientY }) <= RADUIS.REIDITE_DOOR_SPIKE) door.selected = true;
+        //             else door.selected = false;
+        //         }
+        //     };
+        //     const handleClick = (e) => {
+        //         if (Date.now() - start < 200) return;
 
-                settings.alts.select = false;
-                document.removeEventListener("click", handleClick);
-                document.removeEventListener("mousemove", handleMove);
+        //         settings.alts.select = false;
+        //         document.removeEventListener("click", handleClick);
+        //         document.removeEventListener("mousemove", handleMove);
 
-                const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
+        //         const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
 
-                for (const door of doors) {
-                    const x = door.x + user[vars.cam].x,
-                        y = door.y + user[vars.cam].y;
+        //         for (const door of doors) {
+        //             const x = door.x + user[vars.cam].x,
+        //                 y = door.y + user[vars.cam].y;
 
-                    if (calcDist({ x, y }, { x: e.clientX, y: e.clientY }) <= RADUIS.REIDITE_DOOR_SPIKE) {
-                        settings.alts.door_id = door.id;
-                        WSM.send.bind(WSM)([WSM.packets.setDoorID, door.id]);
-                    }
-                }
-            };
+        //             if (calcDist({ x, y }, { x: e.clientX, y: e.clientY }) <= RADUIS.REIDITE_DOOR_SPIKE) {
+        //                 settings.alts.door_id = door.id;
+        //                 WSM.send.bind(WSM)([WSM.packets.setDoorID, door.id]);
+        //             }
+        //         }
+        //     };
 
-            document.addEventListener("click", handleClick);
-            document.addEventListener("mousemove", handleMove);
-        }
+        //     document.addEventListener("click", handleClick);
+        //     document.addEventListener("mousemove", handleMove);
+        // }
 
         document.addEventListener("keydown", (k) => {
             if (changing || user[vars.cmdInput].open || user[vars.chatInput].open || (!user && user.id == 0)) return;
@@ -1461,25 +1471,25 @@
                     ctx.restore();
                 }
 
-            if (settings.alts.select)
-                for (const door of doors) {
-                    ctx.save();
-                    ctx.globalAlpha = 0.5;
+            // if (settings.alts.select)
+            //     for (const door of doors) {
+            //         ctx.save();
+            //         ctx.globalAlpha = 0.5;
 
-                    ctx.lineWidth = 3;
-                    ctx.fillStyle = door.selected ? "lime" : "red";
-                    ctx.strokeStyle = door.selected ? "lime" : "red";
-                    ctx.beginPath();
+            //         ctx.lineWidth = 3;
+            //         ctx.fillStyle = door.selected ? "lime" : "red";
+            //         ctx.strokeStyle = door.selected ? "lime" : "red";
+            //         ctx.beginPath();
 
-                    const x = user[vars.cam].x + door.x,
-                        y = user[vars.cam].y + door.y;
+            //         const x = user[vars.cam].x + door.x,
+            //             y = user[vars.cam].y + door.y;
 
-                    ctx.arc(x, y, 40, 0, PI2M);
-                    ctx.stroke();
-                    ctx.fill();
+            //         ctx.arc(x, y, 40, 0, PI2M);
+            //         ctx.stroke();
+            //         ctx.fill();
 
-                    ctx.restore();
-                }
+            //         ctx.restore();
+            //     }
 
             // if (world[vars.units][ITEMS.CHEST].length) {
             //     ctx.save();
@@ -1517,58 +1527,58 @@
         }
 
         // html UI
-        const WSM = window.WSM;
+        // const WSM = window.WSM;
 
-        WSM.drop = () => sendAymen([packets.drop, ItemType.BOTTLE_EMPTY]);
+        // WSM.drop = () => sendAymen([packets.drop, ItemType.BOTTLE_EMPTY]);
 
-        WSM.shovel = async function () {
-            let shovel = null;
+        // WSM.shovel = async function () {
+        //     let shovel = null;
 
-            const amounts = user[vars.inv].n;
-            if (amounts[ItemType.JADE_SHOVEL]) shovel = ItemType.JADE_SHOVEL;
-            else if (amounts[ItemType.COAL_SHOVEL]) shovel = ItemType.COAL_SHOVEL;
-            else if (amounts[ItemType.EMERALD_SHOVEL]) shovel = ItemType.EMERALD_SHOVEL;
-            else if (amounts[ItemType.COPPER_SHOVEL]) shovel = ItemType.COPPER_SHOVEL;
-            else if (amounts[ItemType.SAPPHIRE_SHOVEL]) shovel = ItemType.SAPPHIRE_SHOVEL;
-            else if (amounts[ItemType.IRON_SHOVEL]) shovel = ItemType.IRON_SHOVEL;
-            else if (amounts[ItemType.REIDITE_SHOVEL]) shovel = ItemType.REIDITE_SHOVEL;
-            else if (amounts[ItemType.AMETHYST_SHOVEL]) shovel = ItemType.AMETHYST_SHOVEL;
-            else if (amounts[ItemType.DIAMOND_SHOVEL]) shovel = ItemType.DIAMOND_SHOVEL;
-            else if (amounts[ItemType.GOLD_SHOVEL]) shovel = ItemType.GOLD_SHOVEL;
-            if (shovel) {
-                let angle = settings.alts.door_target && calcAngle(settings.alts.door_target, me);
+        //     const amounts = user[vars.inv].n;
+        //     if (amounts[ItemType.JADE_SHOVEL]) shovel = ItemType.JADE_SHOVEL;
+        //     else if (amounts[ItemType.COAL_SHOVEL]) shovel = ItemType.COAL_SHOVEL;
+        //     else if (amounts[ItemType.EMERALD_SHOVEL]) shovel = ItemType.EMERALD_SHOVEL;
+        //     else if (amounts[ItemType.COPPER_SHOVEL]) shovel = ItemType.COPPER_SHOVEL;
+        //     else if (amounts[ItemType.SAPPHIRE_SHOVEL]) shovel = ItemType.SAPPHIRE_SHOVEL;
+        //     else if (amounts[ItemType.IRON_SHOVEL]) shovel = ItemType.IRON_SHOVEL;
+        //     else if (amounts[ItemType.REIDITE_SHOVEL]) shovel = ItemType.REIDITE_SHOVEL;
+        //     else if (amounts[ItemType.AMETHYST_SHOVEL]) shovel = ItemType.AMETHYST_SHOVEL;
+        //     else if (amounts[ItemType.DIAMOND_SHOVEL]) shovel = ItemType.DIAMOND_SHOVEL;
+        //     else if (amounts[ItemType.GOLD_SHOVEL]) shovel = ItemType.GOLD_SHOVEL;
+        //     if (shovel) {
+        //         const target = settings.alts.door_target;
+        //         let angle = settings.alts.door_target && calcAngle({ x: randomize(target.x), y: randomize(target.y) }, me);
 
-                sendAymen([packets.equipe, shovel]);
+        //         sendAymen([packets.equipe, shovel]);
 
-                await sleep(Math.random() * 50 + 20);
-                sendAymen([packets.angle, Math.floor(((((angle ?? me.angle) + PI2M) % PI2M) * 255) / PI2M)]);
-                await sleep(Math.random() * 50 + 20);
-                sendAymen([packets.attack, Math.floor(((((angle ?? me.angle) + PI2M) % PI2M) * 255) / PI2M)]);
-            }
-        };
-        WSM.wrench = async function () {
-            if (user[vars.inv].n[ItemType.GOLD_WRENCH]) sendAymen([packets.equipe, ItemType.GOLD_WRENCH]);
-            else sendAymen([packets.equipe, ItemType.WRENCH]);
+        //         await sleep(Math.random() * 50 + 20);
+        //         sendAymen([packets.angle, Math.floor(((((angle ?? me.angle) + PI2M) % PI2M) * 255) / PI2M)]);
+        //         await sleep(Math.random() * 50 + 20);
+        //         sendAymen([packets.attack, Math.floor(((((angle ?? me.angle) + PI2M) % PI2M) * 255) / PI2M)]);
+        //     }
+        // };
+        // WSM.wrench = async function () {
+        //     if (user[vars.inv].n[ItemType.GOLD_WRENCH]) sendAymen([packets.equipe, ItemType.GOLD_WRENCH]);
+        //     else sendAymen([packets.equipe, ItemType.WRENCH]);
 
-            const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
-            let target = settings.alts.door_target;
+        //     const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
+        //     let target = settings.alts.door_target;
 
-            if (!target)
-                for (const door of doors)
-                    if (door.id == settings.alts.door_id) {
-                        settings.alts.door_target = door;
-                        target = door;
-                    }
+        //     if (!target)
+        //         for (const door of doors)
+        //             if (door.id == settings.alts.door_id) {
+        //                 settings.alts.door_target = door;
+        //                 target = door;
+        //             }
 
-            if (target) {
-                const angle = calcAngle(me, world[vars.units]);
+        //     if (target) {
+        //         const angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
 
-                await sleep(Math.random() * 100);
-                sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-                await sleep(Math.random() * 50 + 20);
-                sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-            }
-        };
+        //         await sleep(Math.random() * 100);
+        //         sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+        //         sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+        //     }
+        // };
 
         function changeKeybind(obj) {
             changing = true;
@@ -1593,7 +1603,7 @@
             gui.register({ type: "folder", label: "Visuals" });
             gui.register({ type: "folder", label: "Misc" });
             gui.register({ type: "folder", label: "Kits" });
-            gui.register({ type: "folder", label: "Alts" });
+            // gui.register({ type: "folder", label: "Alts" });
             gui.register({ type: "folder", label: "Settings" });
 
             gui.register({ type: "checkbox", label: "Show Range", folder: "Visuals", object: settings.show_range, prop: "enabled" });
@@ -1603,23 +1613,24 @@
             gui.register({ type: "checkbox", label: "Aimbot", folder: "Misc", object: settings.aimbot, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Steal Chest", folder: "Misc", object: settings.steal_chest, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Auto Sell", folder: "Misc", object: settings.auto_sell, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Auto Respawn", folder: "Misc", object: settings.auto_respawn, prop: "enabled" });
 
             gui.register({ type: "button", label: "Copy Free kit cmd", folder: "Kits", action: () => navigator.clipboard.writeText(`!kit_aob_eu freekit ${user.id}`) });
             gui.register({ type: "button", label: "Copy Tag kit cmd", folder: "Kits", action: () => navigator.clipboard.writeText(`!kit_aob_eu tag ${user.id}`) });
 
-            gui.register({ type: "button", label: "Connect Websocket", folder: "Alts", action: WSM.connect.bind(WSM) });
-            gui.register({
-                type: "button",
-                label: "Set as main",
-                folder: "Alts",
-                action: () => {
-                    WSM.main = true;
-                    WSM.send.bind(WSM)([WSM.packets.promote]);
-                },
-            });
-            gui.register({ type: "button", label: "Select Door", folder: "Alts", action: handleSelect });
-            gui.register({ type: "button", label: "Wrench", folder: "Alts", action: () => WSM.send([WSM.packets.wrench]) });
-            gui.register({ type: "button", label: "Shovel", folder: "Alts", action: () => WSM.send([WSM.packets.shovel]) });
+            // gui.register({ type: "button", label: "Connect Websocket", folder: "Alts", action: WSM.connect.bind(WSM) });
+            // gui.register({
+            //     type: "button",
+            //     label: "Set as main",
+            //     folder: "Alts",
+            //     action: () => {
+            //         WSM.main = true;
+            //         WSM.send.bind(WSM)([WSM.packets.promote]);
+            //     },
+            // });
+            // gui.register({ type: "button", label: "Select Door", folder: "Alts", action: handleSelect });
+            // gui.register({ type: "button", label: "Wrench", folder: "Alts", action: () => WSM.send([WSM.packets.wrench]) });
+            // gui.register({ type: "button", label: "Shovel", folder: "Alts", action: () => WSM.send([WSM.packets.shovel]) });
 
             for (const e in settings) {
                 if (settings[e].k) {
