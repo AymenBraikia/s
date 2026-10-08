@@ -131,6 +131,385 @@
                 return `${(num / 1_000_000_000_000).toFixed(2).replace(/\.?0+$/, "")}t`;
             };
 
+        function advanced_pathfinder(me, target, obstacles) {
+            const CELL = 10;
+            const PLAYER_RADIUS = 10;
+            const EXTRA_CLEARANCE = 5;
+            const SEARCH_RADIUS = 500;
+
+            const key = (x, y) => `${x},${y}`;
+
+            const worldToGrid = (x, y) => ({
+                x: Math.floor(x / CELL),
+                y: Math.floor(y / CELL),
+            });
+
+            const gridToWorld = (x, y) => ({
+                x: x * CELL + CELL / 2,
+                y: y * CELL + CELL / 2,
+            });
+
+            const start = worldToGrid(me.x, me.y);
+            const goal = worldToGrid(target.x, target.y);
+
+            settings.pathfinder.target = {
+                x: goal.x,
+                y: goal.y,
+            };
+
+            /*
+             * ---------------------------------------------------------
+             * OBSTACLE COLLISION
+             * ---------------------------------------------------------
+             *
+             * Obstacles are { x, y, r }
+             * where x/y = center and r = radius.
+             *
+             * We inflate the obstacle by the player's radius so the
+             * player's center cannot get too close to it.
+             */
+            const isBlocked = (gx, gy) => {
+                const p = gridToWorld(gx, gy);
+
+                for (const o of obstacles) {
+                    if (!o || typeof o.x !== "number" || typeof o.y !== "number" || typeof o.r !== "number") {
+                        continue;
+                    }
+
+                    const radius = o.r + PLAYER_RADIUS + EXTRA_CLEARANCE;
+
+                    const dx = p.x - o.x;
+                    const dy = p.y - o.y;
+
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        return true;
+                    }
+                }
+
+                return false;
+            };
+
+            /*
+             * ---------------------------------------------------------
+             * GRID
+             * ---------------------------------------------------------
+             *
+             * Do not blindly build the entire 500-cell radius when the
+             * target is nearby. Keep the 500-cell limit, but make the
+             * actual grid only as large as necessary.
+             */
+            const margin = 20;
+
+            const minX = Math.max(start.x - SEARCH_RADIUS, Math.min(start.x, goal.x) - margin);
+
+            const maxX = Math.min(start.x + SEARCH_RADIUS, Math.max(start.x, goal.x) + margin);
+
+            const minY = Math.max(start.y - SEARCH_RADIUS, Math.min(start.y, goal.y) - margin);
+
+            const maxY = Math.min(start.y + SEARCH_RADIUS, Math.max(start.y, goal.y) + margin);
+
+            const grid = new Map();
+
+            for (let y = minY; y <= maxY; y++) {
+                for (let x = minX; x <= maxX; x++) {
+                    grid.set(key(x, y), isBlocked(x, y));
+                }
+            }
+
+            // Always allow the player's current cell.
+            grid.set(key(start.x, start.y), false);
+
+            // Allow the target cell so the path can finish there.
+            grid.set(key(goal.x, goal.y), false);
+
+            /*
+             * ---------------------------------------------------------
+             * A*
+             * ---------------------------------------------------------
+             */
+
+            const neighbors = [
+                [-1, 0, 1],
+                [1, 0, 1],
+                [0, -1, 1],
+                [0, 1, 1],
+
+                [-1, -1, Math.SQRT2],
+                [1, -1, Math.SQRT2],
+                [-1, 1, Math.SQRT2],
+                [1, 1, Math.SQRT2],
+            ];
+
+            const heuristic = (a, b) => {
+                const dx = Math.abs(a.x - b.x);
+                const dy = Math.abs(a.y - b.y);
+
+                // Octile distance for 8-direction movement.
+                return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+            };
+
+            const open = [
+                {
+                    x: start.x,
+                    y: start.y,
+                    f: heuristic(start, goal),
+                },
+            ];
+
+            const cameFrom = new Map();
+
+            const gScore = new Map();
+            gScore.set(key(start.x, start.y), 0);
+
+            const closed = new Set();
+
+            let found = false;
+
+            while (open.length > 0) {
+                /*
+                 * Find lowest f-score.
+                 */
+                let bestIndex = 0;
+
+                for (let i = 1; i < open.length; i++) {
+                    if (open[i].f < open[bestIndex].f) {
+                        bestIndex = i;
+                    }
+                }
+
+                const current = open.splice(bestIndex, 1)[0];
+                const currentKey = key(current.x, current.y);
+
+                if (closed.has(currentKey)) {
+                    continue;
+                }
+
+                closed.add(currentKey);
+
+                if (current.x === goal.x && current.y === goal.y) {
+                    found = true;
+                    break;
+                }
+
+                for (const [dx, dy, cost] of neighbors) {
+                    const nx = current.x + dx;
+                    const ny = current.y + dy;
+
+                    if (nx < minX || nx > maxX || ny < minY || ny > maxY) {
+                        continue;
+                    }
+
+                    const nKey = key(nx, ny);
+
+                    if (closed.has(nKey)) {
+                        continue;
+                    }
+
+                    if (grid.get(nKey)) {
+                        continue;
+                    }
+
+                    /*
+                     * Prevent diagonal corner cutting.
+                     *
+                     * Example:
+                     *
+                     *   # .
+                     *   . X
+                     *
+                     * Do not allow X to move diagonally through the
+                     * corner between the two blocked cells.
+                     */
+                    if (dx !== 0 && dy !== 0) {
+                        const sideA = key(current.x + dx, current.y);
+                        const sideB = key(current.x, current.y + dy);
+
+                        if (grid.get(sideA) || grid.get(sideB)) {
+                            continue;
+                        }
+                    }
+
+                    const currentG = gScore.get(currentKey) ?? Infinity;
+
+                    const tentativeG = currentG + cost;
+
+                    const oldG = gScore.get(nKey) ?? Infinity;
+
+                    if (tentativeG >= oldG) {
+                        continue;
+                    }
+
+                    cameFrom.set(nKey, currentKey);
+                    gScore.set(nKey, tentativeG);
+
+                    const f = tentativeG + heuristic({ x: nx, y: ny }, goal);
+
+                    open.push({
+                        x: nx,
+                        y: ny,
+                        f,
+                    });
+                }
+            }
+
+            if (!found) {
+                return 0;
+            }
+
+            /*
+             * ---------------------------------------------------------
+             * RECONSTRUCT PATH
+             * ---------------------------------------------------------
+             */
+
+            const rawPath = [];
+
+            let currentKey = key(goal.x, goal.y);
+
+            while (currentKey !== key(start.x, start.y)) {
+                const [x, y] = currentKey.split(",").map(Number);
+
+                rawPath.push({
+                    x,
+                    y,
+                });
+
+                currentKey = cameFrom.get(currentKey);
+
+                if (!currentKey) {
+                    return 0;
+                }
+            }
+
+            rawPath.push({
+                x: start.x,
+                y: start.y,
+            });
+
+            rawPath.reverse();
+
+            /*
+             * ---------------------------------------------------------
+             * LINE OF SIGHT
+             * ---------------------------------------------------------
+             *
+             * Remove unnecessary zig-zag nodes while still checking
+             * the real circular obstacles.
+             */
+            const clearWorldLine = (a, b) => {
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+
+                const distance = Math.hypot(dx, dy);
+
+                const steps = Math.max(1, Math.ceil(distance / (CELL / 2)));
+
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+
+                    const x = a.x + dx * t;
+                    const y = a.y + dy * t;
+
+                    for (const o of obstacles) {
+                        if (!o || typeof o.x !== "number" || typeof o.y !== "number" || typeof o.r !== "number") {
+                            continue;
+                        }
+
+                        const radius = o.r + PLAYER_RADIUS + EXTRA_CLEARANCE;
+
+                        const ox = x - o.x;
+                        const oy = y - o.y;
+
+                        if (ox * ox + oy * oy <= radius * radius) {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            };
+
+            const smoothPath = [];
+
+            let anchor = 0;
+
+            smoothPath.push(rawPath[0]);
+
+            while (anchor < rawPath.length - 1) {
+                let furthest = anchor + 1;
+
+                for (let i = rawPath.length - 1; i > anchor + 1; i--) {
+                    const a = gridToWorld(rawPath[anchor].x, rawPath[anchor].y);
+
+                    const b = gridToWorld(rawPath[i].x, rawPath[i].y);
+
+                    if (clearWorldLine(a, b)) {
+                        furthest = i;
+                        break;
+                    }
+                }
+
+                smoothPath.push(rawPath[furthest]);
+                anchor = furthest;
+            }
+
+            /*
+             * ---------------------------------------------------------
+             * WAYPOINT SELECTION
+             * ---------------------------------------------------------
+             */
+
+            let waypointIndex = 1;
+
+            /*
+             * Skip waypoints that are already close enough.
+             */
+            while (waypointIndex < smoothPath.length) {
+                const wp = gridToWorld(smoothPath[waypointIndex].x, smoothPath[waypointIndex].y);
+
+                const distance = Math.hypot(wp.x - me.x, wp.y - me.y);
+
+                if (distance > CELL) {
+                    break;
+                }
+
+                waypointIndex++;
+            }
+
+            /*
+             * Reached the target.
+             */
+            if (waypointIndex >= smoothPath.length) {
+                return 0;
+            }
+
+            const waypoint = gridToWorld(smoothPath[waypointIndex].x, smoothPath[waypointIndex].y);
+
+            /*
+             * ---------------------------------------------------------
+             * MOVEMENT DIRECTION
+             * ---------------------------------------------------------
+             */
+
+            const tolerance = 18;
+
+            let move = 0;
+
+            if (me.x < waypoint.x - tolerance) {
+                move |= DIRECTION.RIGHT;
+            } else if (me.x > waypoint.x + tolerance) {
+                move |= DIRECTION.LEFT;
+            }
+
+            if (me.y < waypoint.y - tolerance) {
+                move |= DIRECTION.DOWN;
+            } else if (me.y > waypoint.y + tolerance) {
+                move |= DIRECTION.UP;
+            }
+
+            return move;
+        }
+
         function loadSettings() {
             try {
                 if (localStorage.getItem("settings")) {
@@ -139,6 +518,7 @@
                     s.auto_spike.enabled = false;
                     s.auto_door.enabled = false;
                     s.steal_chest.enabled = false;
+                    console.log("loaded settings");
                     return true;
                 }
             } catch {}
@@ -160,8 +540,8 @@
         let vars = null,
             me = null,
             gui = null,
-            resources,
             changing = false;
+        window.resources = undefined;
 
         const sell_ids = {
             BREAD: 16,
@@ -171,7 +551,30 @@
             CAKE: 11,
             SPIKE: 35,
         };
-        const settings = loadSettings() || {
+
+        let settings = {
+            pathfinder: {
+                enabled: false,
+                draw: true,
+                k: "KeyP",
+                type: "press",
+                x: null,
+                y: null,
+                advanced: true,
+                last_move: null,
+
+                target: {
+                    x: null,
+                    y: null,
+                },
+                path: null,
+            },
+            show_hit_boxes: {
+                enabled: false,
+                draw: true,
+                k: "Numpad3",
+                type: "press",
+            },
             show_range: {
                 enabled: false,
                 draw: true,
@@ -259,15 +662,12 @@
                 cd: 50,
                 last: -1,
             },
-            alts: {
-                select: false,
-                door_id: null,
-                door_target: null,
-            },
         };
+        loadSettings();
         window.settings = settings;
 
         const packets = {
+            move: 2,
             equipe: 5,
             angle: 4,
             attack: 3,
@@ -276,6 +676,13 @@
             drop: 6,
             take_chest: 8,
             sell: 32,
+        };
+        const DIRECTION = {
+            STOP: 0,
+            LEFT: 1,
+            RIGHT: 2,
+            DOWN: 4,
+            UP: 8,
         };
 
         const ItemType = {
@@ -737,25 +1144,25 @@
         const RADUIS = {
             PLOT: 45,
             TOTEM: 45,
-            PLAYERS: 30,
+            PLAYERS: 25,
             CHEST: 35,
             EMERALD_MACHINE: 60,
 
-            WOOD_DOOR_SPIKE: 42,
-            STONE_DOOR_SPIKE: 42,
-            GOLD_DOOR_SPIKE: 42,
-            DIAMOND_DOOR_SPIKE: 42,
-            AMETHYST_DOOR_SPIKE: 42,
-            REIDITE_DOOR_SPIKE: 42,
-            EMERALD_DOOR_SPIKE: 42,
+            WOOD_DOOR_SPIKE: 41,
+            STONE_DOOR_SPIKE: 41,
+            GOLD_DOOR_SPIKE: 41,
+            DIAMOND_DOOR_SPIKE: 41,
+            AMETHYST_DOOR_SPIKE: 41,
+            REIDITE_DOOR_SPIKE: 41,
+            EMERALD_DOOR_SPIKE: 41,
 
-            SPIKE: 42,
-            STONE_SPIKE: 42,
-            GOLD_SPIKE: 42,
-            DIAMOND_SPIKE: 42,
-            AMETHYST_SPIKE: 42,
-            REIDITE_SPIKE: 42,
-            EMERALD_SPIKE: 42,
+            SPIKE: 41,
+            STONE_SPIKE: 41,
+            GOLD_SPIKE: 41,
+            DIAMOND_SPIKE: 41,
+            AMETHYST_SPIKE: 41,
+            REIDITE_SPIKE: 41,
+            EMERALD_SPIKE: 41,
 
             WALL: 45,
             STONE_WALL: 45,
@@ -854,122 +1261,237 @@
         ]);
 
         const sizes = {
-            s: 55,
-            m: 135,
-            l: 85,
-            xl: 100,
+            s: 70,
+            m: 85,
+            l: 95,
         };
-        const MAP_R = {
+        window.MAP_R = {
+            // f: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // p: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // s: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // re: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // plm: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // d: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // a: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // g: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // b: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // t: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+
+            // m: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+
+            // rub: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // aqu: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // coa: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+
+            // cop: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // jad: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // sap: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
+            // top: {
+            //     0: sizes.s,
+            //     1: sizes.m,
+            //     2: sizes.l,
+            //     3: sizes.xl,
+            // },
             f: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
-            },
-            p: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
+                0: 140,
+                1: 95,
+                2: 95,
             },
             s: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
+            },
+            cs: {
+                0: sizes.s,
+                1: sizes.m,
+                2: sizes.l,
             },
             re: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
-            plm: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
-            },
-            d: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
+            c: {
+                0: sizes.s - 10,
+                1: sizes.m - 10,
+                2: sizes.l - 10,
             },
             a: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
-            g: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
+            d: {
+                0: sizes.s + 10,
+                1: sizes.m + 10,
+                2: sizes.l + 10,
+            },
+            plm: {
+                0: sizes.s - 25,
+                1: sizes.m - 25,
+                2: sizes.l - 25,
             },
             b: {
+                0: 95,
+                1: 95,
+                2: 85,
+            },
+            r: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
+
             t: {
+                0: 95,
+                1: 95,
+                2: 95,
+            },
+            p: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
-
-            m: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
+            g: {
+                0: sizes.s + 20,
+                1: sizes.m - 15,
+                2: sizes.l + 20,
             },
-
             rub: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
+                0: sizes.s - 5,
+                1: sizes.m - 5,
+                2: sizes.l - 5,
             },
             aqu: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
             coa: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
-
-            cop: {
+            fo: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
+            },
+            de: {
+                0: sizes.s,
+                1: sizes.m,
+                2: sizes.l,
+            },
+            cop: {
+                0: sizes.s - 5,
+                1: sizes.m - 5,
+                2: sizes.l - 5,
             },
             jad: {
-                0: sizes.s,
-                1: sizes.m,
-                2: sizes.l,
-                3: sizes.xl,
+                0: sizes.s - 5,
+                1: sizes.m - 5,
+                2: sizes.l - 5,
             },
             sap: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
             },
             top: {
                 0: sizes.s,
                 1: sizes.m,
                 2: sizes.l,
-                3: sizes.xl,
+            },
+            iro: {
+                0: sizes.s,
+                1: sizes.m,
+                2: sizes.l,
             },
         };
         const noise = {
@@ -984,18 +1506,15 @@
             let itemName = null;
 
             if (!resources) {
+                window.resetWorld = false;
                 resources = world[vars.map]
                     .filter((r) => MAP_R[r[1]])
                     .map((e) => {
-                        const x = e[3] * 100,
-                            y = e[4] * 100,
+                        const x = e[3] * 100 + 50,
+                            y = e[4] * 100 + 50,
                             r = MAP_R[e[1]][e[2]],
                             t = e[1];
 
-                        // if (typeof x != "number" || typeof y != "number" || typeof r != "number") {
-                        //     console.log(x, y, r, t);
-                        //     debugger;
-                        // }
                         return { x, y, r, t };
                     });
             }
@@ -1039,10 +1558,7 @@
             }
 
             for (const e of resources) {
-                if (typeof e.x != "number" || typeof e.y != "number" || typeof e.r != "number") {
-                    // console.log("missing data for: ", e.t);
-                    continue;
-                }
+                if (typeof e.x != "number" || typeof e.y != "number" || typeof e.r != "number") continue;
 
                 const dist = Math.hypot(x - e.x, y - e.y);
 
@@ -1117,46 +1633,6 @@
 
             return original + noise.v;
         }
-
-        // function handleSelect() {
-        //     let start = Date.now();
-
-        //     settings.alts.select = true;
-
-        //     const handleMove = (e) => {
-        //         const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
-
-        //         for (const door of doors) {
-        //             const x = door.x + user[vars.cam].x,
-        //                 y = door.y + user[vars.cam].y;
-
-        //             if (calcDist({ x, y }, { x: e.clientX, y: e.clientY }) <= RADUIS.REIDITE_DOOR_SPIKE) door.selected = true;
-        //             else door.selected = false;
-        //         }
-        //     };
-        //     const handleClick = (e) => {
-        //         if (Date.now() - start < 200) return;
-
-        //         settings.alts.select = false;
-        //         document.removeEventListener("click", handleClick);
-        //         document.removeEventListener("mousemove", handleMove);
-
-        //         const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
-
-        //         for (const door of doors) {
-        //             const x = door.x + user[vars.cam].x,
-        //                 y = door.y + user[vars.cam].y;
-
-        //             if (calcDist({ x, y }, { x: e.clientX, y: e.clientY }) <= RADUIS.REIDITE_DOOR_SPIKE) {
-        //                 settings.alts.door_id = door.id;
-        //                 WSM.send.bind(WSM)([WSM.packets.setDoorID, door.id]);
-        //             }
-        //         }
-        //     };
-
-        //     document.addEventListener("click", handleClick);
-        //     document.addEventListener("mousemove", handleMove);
-        // }
 
         document.addEventListener("keydown", (k) => {
             if (changing || user[vars.cmdInput].open || user[vars.chatInput].open || (!user && user.id == 0)) return;
@@ -1235,11 +1711,11 @@
 
                 const amounts = user[vars.inv].n;
                 if (amounts[ItemType.EMERALD_DOOR_SPIKE]) ((spike = ItemType.EMERALD_DOOR_SPIKE), (type = ITEMS.EMERALD_DOOR_SPIKE));
+                else if (amounts[ItemType.STONE_DOOR_SPIKE]) ((spike = ItemType.STONE_DOOR_SPIKE), (type = ITEMS.STONE_DOOR_SPIKE));
                 else if (amounts[ItemType.REIDITE_DOOR_SPIKE]) ((spike = ItemType.REIDITE_DOOR_SPIKE), (type = ITEMS.REIDITE_DOOR_SPIKE));
                 else if (amounts[ItemType.AMETHYST_DOOR_SPIKE]) ((spike = ItemType.AMETHYST_DOOR_SPIKE), (type = ITEMS.AMETHYST_DOOR_SPIKE));
                 else if (amounts[ItemType.DIAMOND_DOOR_SPIKE]) ((spike = ItemType.DIAMOND_DOOR_SPIKE), (type = ITEMS.DIAMOND_DOOR_SPIKE));
                 else if (amounts[ItemType.GOLD_DOOR_SPIKE]) ((spike = ItemType.GOLD_DOOR_SPIKE), (type = ITEMS.GOLD_DOOR_SPIKE));
-                else if (amounts[ItemType.STONE_DOOR_SPIKE]) ((spike = ItemType.STONE_DOOR_SPIKE), (type = ITEMS.STONE_DOOR_SPIKE));
                 else if (amounts[ItemType.WOOD_DOOR_SPIKE]) ((spike = ItemType.WOOD_DOOR_SPIKE), (type = ITEMS.WOOD_DOOR_SPIKE));
 
                 if (spike) {
@@ -1355,6 +1831,45 @@
                 if (amounts[ItemType.CAKE]) sendAymen([packets.sell, amounts[ItemType.CAKE], sell_ids.CAKE]);
                 if (amounts[ItemType.BREAD]) sendAymen([packets.sell, amounts[ItemType.BREAD], sell_ids.BREAD]);
             }
+
+            if (settings.pathfinder.enabled) {
+                const target = { x: settings.pathfinder.x * 100 + 50, y: settings.pathfinder.y * 100 + 50 };
+                let move = 0;
+
+                if (settings.pathfinder.advanced) {
+                    const obstacles = [...(resources || [])];
+
+                    for (const k in RADUIS) {
+                        if (["PLAYERS", "PLOT"].includes(k)) continue;
+                        for (const o of world[vars.units][ITEMS[k]]) {
+                            obstacles.push({
+                                x: o.x,
+                                y: o.y,
+                                r: RADUIS[k],
+                            });
+                        }
+                    }
+
+                    move = advanced_pathfinder(me, target, obstacles);
+                } else {
+                    const x = Math.floor(me.x / 100);
+                    const y = Math.floor(me.y / 100);
+
+                    if (x < target.x) move |= DIRECTION.RIGHT;
+                    if (x > target.x) move |= DIRECTION.LEFT;
+
+                    if (y > target.y) move |= DIRECTION.UP;
+                    if (y < target.y) move |= DIRECTION.DOWN;
+                }
+                if (move != settings.pathfinder.last_move) {
+                    sendAymen([packets.move, move]);
+                    settings.pathfinder.last_move = move;
+                }
+                if (move == 0) {
+                    settings.pathfinder.enabled = false;
+                    gui.update();
+                }
+            }
         }
 
         // ctx UI
@@ -1398,6 +1913,35 @@
             }
 
             ctx.restore();
+
+            if (settings.show_hit_boxes.enabled && resources) {
+                ctx.strokeStyle = "red";
+                ctx.lineWidth = 3;
+
+                const r = RADUIS.PLAYERS;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(cam_x, cam_y, r, 0, PI2M);
+                ctx.stroke();
+
+                for (const { x, y, r, t } of resources) {
+                    ctx.save();
+                    ctx.translate(x + user[vars.cam].x, y + user[vars.cam].y);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, PI2M);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+                for (const { x, y } of [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]]) {
+                    ctx.save();
+                    ctx.translate(x + user[vars.cam].x, y + user[vars.cam].y);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, RADUIS.REIDITE_DOOR_SPIKE, 0, PI2M);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
 
             if (settings.aimbot.enabled || settings.show_range.enabled) {
                 ctx.save();
@@ -1470,115 +2014,7 @@
 
                     ctx.restore();
                 }
-
-            // if (settings.alts.select)
-            //     for (const door of doors) {
-            //         ctx.save();
-            //         ctx.globalAlpha = 0.5;
-
-            //         ctx.lineWidth = 3;
-            //         ctx.fillStyle = door.selected ? "lime" : "red";
-            //         ctx.strokeStyle = door.selected ? "lime" : "red";
-            //         ctx.beginPath();
-
-            //         const x = user[vars.cam].x + door.x,
-            //             y = user[vars.cam].y + door.y;
-
-            //         ctx.arc(x, y, 40, 0, PI2M);
-            //         ctx.stroke();
-            //         ctx.fill();
-
-            //         ctx.restore();
-            //     }
-
-            // if (world[vars.units][ITEMS.CHEST].length) {
-            //     ctx.save();
-            //     ctx.font = "20px Baloo Paaji";
-            //     ctx.textBaseline = "top";
-            //     ctx.textAlign = "left";
-            //     ctx.globalAlpha = 0.8;
-
-            //     ctx.lineWidth = 4;
-            //     ctx.strokeStyle = "black";
-            //     ctx.fillStyle = "white";
-
-            //     for (const chest of world[vars.units][ITEMS.CHEST]) {
-            //         ctx.save();
-            //         const img = window.game[vars.buttons][chest.extra].info.img[0];
-
-            //         const x = user[vars.cam].x + chest.x - img.width / 2,
-            //             y = user[vars.cam].y + chest.y - img.height / 2,
-            //             s = window.ss ?? 50;
-
-            //         if (!img.isLoaded) img.tryLoad();
-
-            //         ctx.translate(x, y);
-            //         window.rot && ctx.rotate(chest.angle);
-            //         ctx.drawImage(img, 0, 0, s, s);
-
-            //         ctx.strokeText("x" + chest.info, s / 2, s / 2);
-
-            //         ctx.fillText("x" + chest.info, s / 2, s / 2);
-
-            //         ctx.restore();
-            //     }
-            //     ctx.restore();
-            // }
         }
-
-        // html UI
-        // const WSM = window.WSM;
-
-        // WSM.drop = () => sendAymen([packets.drop, ItemType.BOTTLE_EMPTY]);
-
-        // WSM.shovel = async function () {
-        //     let shovel = null;
-
-        //     const amounts = user[vars.inv].n;
-        //     if (amounts[ItemType.JADE_SHOVEL]) shovel = ItemType.JADE_SHOVEL;
-        //     else if (amounts[ItemType.COAL_SHOVEL]) shovel = ItemType.COAL_SHOVEL;
-        //     else if (amounts[ItemType.EMERALD_SHOVEL]) shovel = ItemType.EMERALD_SHOVEL;
-        //     else if (amounts[ItemType.COPPER_SHOVEL]) shovel = ItemType.COPPER_SHOVEL;
-        //     else if (amounts[ItemType.SAPPHIRE_SHOVEL]) shovel = ItemType.SAPPHIRE_SHOVEL;
-        //     else if (amounts[ItemType.IRON_SHOVEL]) shovel = ItemType.IRON_SHOVEL;
-        //     else if (amounts[ItemType.REIDITE_SHOVEL]) shovel = ItemType.REIDITE_SHOVEL;
-        //     else if (amounts[ItemType.AMETHYST_SHOVEL]) shovel = ItemType.AMETHYST_SHOVEL;
-        //     else if (amounts[ItemType.DIAMOND_SHOVEL]) shovel = ItemType.DIAMOND_SHOVEL;
-        //     else if (amounts[ItemType.GOLD_SHOVEL]) shovel = ItemType.GOLD_SHOVEL;
-        //     if (shovel) {
-        //         const target = settings.alts.door_target;
-        //         let angle = settings.alts.door_target && calcAngle({ x: randomize(target.x), y: randomize(target.y) }, me);
-
-        //         sendAymen([packets.equipe, shovel]);
-
-        //         await sleep(Math.random() * 50 + 20);
-        //         sendAymen([packets.angle, Math.floor(((((angle ?? me.angle) + PI2M) % PI2M) * 255) / PI2M)]);
-        //         await sleep(Math.random() * 50 + 20);
-        //         sendAymen([packets.attack, Math.floor(((((angle ?? me.angle) + PI2M) % PI2M) * 255) / PI2M)]);
-        //     }
-        // };
-        // WSM.wrench = async function () {
-        //     if (user[vars.inv].n[ItemType.GOLD_WRENCH]) sendAymen([packets.equipe, ItemType.GOLD_WRENCH]);
-        //     else sendAymen([packets.equipe, ItemType.WRENCH]);
-
-        //     const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
-        //     let target = settings.alts.door_target;
-
-        //     if (!target)
-        //         for (const door of doors)
-        //             if (door.id == settings.alts.door_id) {
-        //                 settings.alts.door_target = door;
-        //                 target = door;
-        //             }
-
-        //     if (target) {
-        //         const angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
-
-        //         await sleep(Math.random() * 100);
-        //         sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-        //         sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-        //     }
-        // };
 
         function changeKeybind(obj) {
             changing = true;
@@ -1586,7 +2022,6 @@
             gui.update();
 
             function handlePress(e) {
-                console.log(e.code);
                 obj.k = e.code;
                 changing = false;
                 gui.update();
@@ -1603,9 +2038,11 @@
             gui.register({ type: "folder", label: "Visuals" });
             gui.register({ type: "folder", label: "Misc" });
             gui.register({ type: "folder", label: "Kits" });
-            // gui.register({ type: "folder", label: "Alts" });
+            gui.register({ type: "folder", label: "Pathfinder" });
+            gui.register({ type: "folder", label: "Others" });
             gui.register({ type: "folder", label: "Settings" });
 
+            gui.register({ type: "checkbox", label: "Show Hit Boxes", folder: "Visuals", object: settings.show_hit_boxes, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Show Range", folder: "Visuals", object: settings.show_range, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Hide AFK", folder: "Visuals", object: settings.hide_afk, prop: "enabled" });
 
@@ -1618,19 +2055,24 @@
             gui.register({ type: "button", label: "Copy Free kit cmd", folder: "Kits", action: () => navigator.clipboard.writeText(`!kit_aob_eu freekit ${user.id}`) });
             gui.register({ type: "button", label: "Copy Tag kit cmd", folder: "Kits", action: () => navigator.clipboard.writeText(`!kit_aob_eu tag ${user.id}`) });
 
-            // gui.register({ type: "button", label: "Connect Websocket", folder: "Alts", action: WSM.connect.bind(WSM) });
-            // gui.register({
-            //     type: "button",
-            //     label: "Set as main",
-            //     folder: "Alts",
-            //     action: () => {
-            //         WSM.main = true;
-            //         WSM.send.bind(WSM)([WSM.packets.promote]);
-            //     },
-            // });
-            // gui.register({ type: "button", label: "Select Door", folder: "Alts", action: handleSelect });
-            // gui.register({ type: "button", label: "Wrench", folder: "Alts", action: () => WSM.send([WSM.packets.wrench]) });
-            // gui.register({ type: "button", label: "Shovel", folder: "Alts", action: () => WSM.send([WSM.packets.shovel]) });
+            gui.register({ type: "checkbox", label: "Pathfinder", folder: "Pathfinder", object: settings.pathfinder, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Advanced", folder: "Pathfinder", object: settings.pathfinder, prop: "advanced" });
+            gui.register({ type: "display", label: "Target X:", folder: "Pathfinder", object: settings.pathfinder, prop: "x" });
+            gui.register({ type: "display", label: "Target Y:", folder: "Pathfinder", object: settings.pathfinder, prop: "y" });
+
+            gui.register({
+                type: "button",
+                label: "Set Pathfinder Location",
+                folder: "Pathfinder",
+                action: () => {
+                    settings.pathfinder.x = Math.floor(me.x / 100);
+                    settings.pathfinder.y = Math.floor(me.y / 100);
+                    gui.update();
+                    saveSettings();
+                },
+            });
+
+            gui.register({ type: "button", label: "Respawn", folder: "Others", action: () => {} });
 
             for (const e in settings) {
                 if (settings[e].k) {
