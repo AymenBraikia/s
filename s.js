@@ -1,5 +1,543 @@
 (() => {
     try {
+        class Advanced_Pathfinder {
+            constructor(search_radius = 1500, cell_size = 100) {
+                this.search_radius = search_radius;
+                this.cell_size = cell_size;
+
+                this.world_w = 8100;
+                this.world_h = 8100;
+
+                this.me = null;
+                this.target = null;
+
+                this.obstacles = [];
+                this.cells = new Map();
+
+                this.path = [];
+                this.index = 0;
+
+                this.setup_cells();
+            }
+
+            // Set the destination in WORLD coordinates.
+            set_target(x, y, me) {
+                this.me = {
+                    x: me.x,
+                    y: me.y,
+                    r: me.r ?? 10,
+                };
+
+                this.target = { x, y };
+
+                this.path = [];
+                this.index = 0;
+            }
+
+            // Each obstacle should have { x, y, r } in world coordinates.
+            set_obstacles(obstacles) {
+                this.obstacles = Array.isArray(obstacles) ? obstacles : [];
+            }
+
+            // World coordinates -> grid key.
+            location_to_grid({ x, y }) {
+                const cols = Math.ceil(this.world_w / this.cell_size);
+                const rows = Math.ceil(this.world_h / this.cell_size);
+
+                const gx = Math.max(0, Math.min(cols - 1, Math.floor(x / this.cell_size)));
+
+                const gy = Math.max(0, Math.min(rows - 1, Math.floor(y / this.cell_size)));
+
+                return `${gx},${gy}`;
+            }
+
+            // Grid key -> integer grid coordinates.
+            grid_to_coords(key) {
+                const [x, y] = key.split(",").map(Number);
+                return { x, y };
+            }
+
+            // Grid key -> world-space center of the cell.
+            grid_to_location(key) {
+                const { x, y } = this.grid_to_coords(key);
+
+                return {
+                    x: (x + 0.5) * this.cell_size,
+                    y: (y + 0.5) * this.cell_size,
+                };
+            }
+
+            calc_dist(a, b) {
+                return Math.hypot(a.x - b.x, a.y - b.y);
+            }
+
+            // Initialize all cells as walkable.
+            setup_cells() {
+                this.cells.clear();
+
+                const cols = Math.ceil(this.world_w / this.cell_size);
+                const rows = Math.ceil(this.world_h / this.cell_size);
+
+                for (let x = 0; x < cols; x++) {
+                    for (let y = 0; y < rows; y++) {
+                        this.cells.set(`${x},${y}`, true);
+                    }
+                }
+            }
+
+            // true = walkable
+            // false = blocked
+
+            calc_directions() {
+                const size = this.cell_size;
+                const cols = Math.ceil(this.world_w / size);
+                const rows = Math.ceil(this.world_h / size);
+
+                const player_radius = Math.max(0, Number(this.me?.r) || 20);
+
+                // Reset the existing grid.
+                for (const key of this.cells.keys()) {
+                    if (this.cells.get(key) === false) {
+                        this.cells.set(key, true);
+                    }
+                }
+
+                // Mark only cells near each obstacle.
+                for (const obs of this.obstacles) {
+                    if (!obs || !Number.isFinite(obs.x) || !Number.isFinite(obs.y)) {
+                        continue;
+                    }
+
+                    const obstacle_radius = Math.max(0, Number(obs.r) || 0);
+
+                    const clearance = obstacle_radius + player_radius + size * Math.SQRT1_2;
+
+                    // Restrict work to the obstacle's local bounding box.
+                    const minGX = Math.max(0, Math.floor((obs.x - clearance) / size));
+
+                    const maxGX = Math.min(cols - 1, Math.floor((obs.x + clearance) / size));
+
+                    const minGY = Math.max(0, Math.floor((obs.y - clearance) / size));
+
+                    const maxGY = Math.min(rows - 1, Math.floor((obs.y + clearance) / size));
+
+                    for (let gx = minGX; gx <= maxGX; gx++) {
+                        const cellX = (gx + 0.5) * size;
+                        const dx = cellX - obs.x;
+
+                        for (let gy = minGY; gy <= maxGY; gy++) {
+                            const cellY = (gy + 0.5) * size;
+                            const dy = cellY - obs.y;
+
+                            if (Math.hypot(dx, dy) > clearance) {
+                                continue;
+                            }
+
+                            this.cells.set(`${gx},${gy}`, false);
+                        }
+                    }
+                }
+            }
+
+            // A* pathfinding.
+            find_path() {
+                this.path = [];
+                this.index = 0;
+
+                if (!this.me || !this.target || this.cells.size === 0) {
+                    return null;
+                }
+
+                const start_key = this.location_to_grid(this.me);
+                const target_key = this.location_to_grid(this.target);
+
+                if (!this.cells.has(start_key) || !this.cells.has(target_key)) {
+                    return null;
+                }
+
+                // Permit the start cell even if the player is overlapping
+                // an obstacle, so the player can attempt to escape.
+                const is_walkable = (key) => this.cells.has(key) && (key === start_key || this.cells.get(key) === true);
+
+                if (start_key === target_key) {
+                    this.path = [this.grid_to_location(start_key)];
+                    return this.path;
+                }
+
+                if (!is_walkable(target_key)) {
+                    return null;
+                }
+
+                // Octile distance heuristic for 8-direction movement.
+                const heuristic = (key) => {
+                    const a = this.grid_to_coords(key);
+                    const b = this.grid_to_coords(target_key);
+
+                    const dx = Math.abs(a.x - b.x);
+                    const dy = Math.abs(a.y - b.y);
+
+                    return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
+                };
+
+                // Min-heap: node with the smallest f score comes first.
+                const heap = [];
+
+                const heap_push = (node) => {
+                    let i = heap.length;
+                    heap.push(node);
+
+                    while (i > 0) {
+                        const parent = (i - 1) >> 1;
+
+                        if (heap[parent].f <= node.f) {
+                            break;
+                        }
+
+                        heap[i] = heap[parent];
+                        i = parent;
+                    }
+
+                    heap[i] = node;
+                };
+
+                const heap_pop = () => {
+                    if (!heap.length) return null;
+
+                    const first = heap[0];
+                    const last = heap.pop();
+
+                    if (heap.length > 0) {
+                        let i = 0;
+
+                        while (true) {
+                            const left = i * 2 + 1;
+                            const right = left + 1;
+
+                            if (left >= heap.length) break;
+
+                            let child = left;
+
+                            if (right < heap.length && heap[right].f < heap[left].f) {
+                                child = right;
+                            }
+
+                            if (heap[child].f >= last.f) {
+                                break;
+                            }
+
+                            heap[i] = heap[child];
+                            i = child;
+                        }
+
+                        heap[i] = last;
+                    }
+
+                    return first;
+                };
+
+                const came_from = new Map();
+                const g_score = new Map();
+
+                const closed = new Set();
+
+                g_score.set(start_key, 0);
+
+                heap_push({
+                    key: start_key,
+                    g: 0,
+                    f: heuristic(start_key),
+                });
+
+                const directions = [
+                    [1, 0],
+                    [-1, 0],
+                    [0, 1],
+                    [0, -1],
+                    [1, 1],
+                    [1, -1],
+                    [-1, 1],
+                    [-1, -1],
+                ];
+
+                while (heap.length > 0) {
+                    const current = heap_pop();
+
+                    // Ignore old entries for cells whose score improved.
+                    if (current.g !== g_score.get(current.key)) {
+                        continue;
+                    }
+
+                    if (closed.has(current.key)) {
+                        continue;
+                    }
+
+                    // Target reached: reconstruct the path.
+                    if (current.key === target_key) {
+                        const path = [];
+                        let key = target_key;
+
+                        while (key !== start_key) {
+                            path.push(this.grid_to_location(key));
+
+                            key = came_from.get(key);
+
+                            if (key === undefined) {
+                                this.path = [];
+                                return null;
+                            }
+                        }
+
+                        path.push(this.grid_to_location(start_key));
+                        path.reverse();
+
+                        this.path = path;
+                        this.index = 0;
+
+                        return this.path;
+                    }
+
+                    closed.add(current.key);
+
+                    const { x: gx, y: gy } = this.grid_to_coords(current.key);
+
+                    for (const [dx, dy] of directions) {
+                        const nx = gx + dx;
+                        const ny = gy + dy;
+                        const next_key = `${nx},${ny}`;
+
+                        if (!is_walkable(next_key)) {
+                            continue;
+                        }
+
+                        if (closed.has(next_key)) {
+                            continue;
+                        }
+
+                        const next_pos = this.grid_to_location(next_key);
+
+                        // Restrict the search to the radius around the player.
+                        if (Number.isFinite(this.search_radius) && this.calc_dist(next_pos, this.me) > this.search_radius) {
+                            continue;
+                        }
+
+                        // Prevent diagonal movement through blocked corners.
+                        if (dx !== 0 && dy !== 0) {
+                            const side_x = `${gx + dx},${gy}`;
+                            const side_y = `${gx},${gy + dy}`;
+
+                            if (!is_walkable(side_x) || !is_walkable(side_y)) {
+                                continue;
+                            }
+                        }
+
+                        const step_cost = dx !== 0 && dy !== 0 ? Math.SQRT2 : 1;
+
+                        const tentative_g = current.g + step_cost;
+                        const previous_g = g_score.get(next_key) ?? Infinity;
+
+                        if (tentative_g >= previous_g) {
+                            continue;
+                        }
+
+                        came_from.set(next_key, current.key);
+                        g_score.set(next_key, tentative_g);
+
+                        heap_push({
+                            key: next_key,
+                            g: tentative_g,
+                            f: tentative_g + heuristic(next_key),
+                        });
+                    }
+                }
+
+                // No reachable route found.
+                this.path = [];
+                this.index = 0;
+
+                return null;
+            }
+
+            // Calculate the movement bitmask for your existing controller.
+            get_next_move(me) {
+                if (!this.path.length) {
+                    return DIRECTION.STOP;
+                }
+
+                const player_x = Math.floor(me.x / this.cell_size);
+                const player_y = Math.floor(me.y / this.cell_size);
+
+                // Skip waypoints as soon as their tiles are reached.
+                while (this.index < this.path.length) {
+                    const waypoint = this.path[this.index];
+
+                    const tx = Math.floor(waypoint.x / this.cell_size);
+                    const ty = Math.floor(waypoint.y / this.cell_size);
+
+                    if (player_x === tx && player_y === ty) {
+                        this.index++;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (this.index >= this.path.length) {
+                    return DIRECTION.STOP;
+                }
+
+                const waypoint = this.path[this.index];
+
+                const target_x = Math.floor(waypoint.x / this.cell_size);
+                const target_y = Math.floor(waypoint.y / this.cell_size);
+
+                let move = DIRECTION.STOP;
+
+                if (player_x < target_x) move |= DIRECTION.RIGHT;
+                if (player_x > target_x) move |= DIRECTION.LEFT;
+
+                if (player_y > target_y) move |= DIRECTION.UP;
+                if (player_y < target_y) move |= DIRECTION.DOWN;
+
+                return move;
+            }
+        }
+
+        function get_pathfinder_obstacles() {
+            // Lazily initialize static map resources.
+            if (resources === null) {
+                const map_data = world?.[vars.map];
+
+                resources = Array.isArray(map_data)
+                    ? map_data
+                          .filter((e) => e && MAP_R[e[1]])
+                          .map((e) => ({
+                              x: e[3] * 100 + 50,
+                              y: e[4] * 100 + 50,
+                              r: MAP_R[e[1]][e[2]],
+                              t: e[1],
+                          }))
+                    : [];
+            }
+
+            const obstacles = resources.slice();
+            const units = world?.[vars.units];
+
+            // Add placed objects that have collision radii.
+            for (const name of Object.keys(RADUIS)) {
+                if (name === "PLAYERS" || name === "PLOT") {
+                    continue;
+                }
+
+                const type = ITEMS[name];
+
+                if (type === undefined) {
+                    continue;
+                }
+
+                const entities = units?.[type];
+
+                if (!Array.isArray(entities)) {
+                    continue;
+                }
+
+                const radius = RADUIS[name];
+
+                for (const obj of entities) {
+                    if (!obj || !Number.isFinite(obj.x) || !Number.isFinite(obj.y)) {
+                        continue;
+                    }
+
+                    obstacles.push({
+                        x: obj.x,
+                        y: obj.y,
+                        r: radius,
+                    });
+                }
+            }
+
+            return obstacles;
+        }
+
+        function update_pathfinder(timestamp) {
+            const s = settings.pathfinder;
+
+            if (!s.enabled) {
+                if (PathFinder.was_enabled && s.last_move !== DIRECTION.STOP) {
+                    sendAymen([packets.move, DIRECTION.STOP]);
+                    s.last_move = DIRECTION.STOP;
+                }
+
+                PathFinder.was_enabled = false;
+                return;
+            }
+
+            const just_enabled = !PathFinder.was_enabled;
+            PathFinder.was_enabled = true;
+
+            let move = DIRECTION.STOP;
+
+            const target_x = s.x;
+            const target_y = s.y;
+
+            if (!Number.isFinite(target_x) || !Number.isFinite(target_y)) {
+                s.enabled = false;
+            } else if (s.advanced) {
+                const target_key = `${target_x},${target_y}`;
+
+                const needs_repath =
+                    just_enabled || PathFinder.last_mode !== "advanced" || s.cached_target !== target_key || PathFinder.path.length === 0 || PathFinder.index >= PathFinder.path.length || timestamp - (s.last_repath || 0) >= 8000;
+
+                if (needs_repath) {
+                    // Convert tile coordinates to the center of the target tile.
+                    PathFinder.set_target(target_x * 100 + 50, target_y * 100 + 50, me);
+
+                    PathFinder.set_obstacles(get_pathfinder_obstacles());
+
+                    PathFinder.calc_directions();
+
+                    s.path = PathFinder.find_path();
+
+                    s.cached_target = target_key;
+                    s.last_repath = timestamp;
+                }
+
+                PathFinder.last_mode = "advanced";
+
+                if (PathFinder.path.length > 0) {
+                    // This updates the waypoint index and returns the bitmask.
+                    move = PathFinder.get_next_move(me);
+                } else {
+                    console.warn("Pathfinder: no path found.");
+                    s.enabled = false;
+                }
+            } else {
+                PathFinder.last_mode = "basic";
+
+                // Basic movement also compares TILE coordinates.
+                const x = Math.floor(me.x / 100);
+                const y = Math.floor(me.y / 100);
+
+                if (x < target_x) move |= DIRECTION.RIGHT;
+                if (x > target_x) move |= DIRECTION.LEFT;
+
+                if (y > target_y) move |= DIRECTION.UP;
+                if (y < target_y) move |= DIRECTION.DOWN;
+            }
+
+            // Send movement ONCE, regardless of which pathfinding mode is used.
+            if (move !== s.last_move) {
+                sendAymen([packets.move, move]);
+                s.last_move = move;
+            }
+
+            if (move === DIRECTION.STOP) {
+                s.enabled = false;
+                PathFinder.was_enabled = false;
+                gui.update();
+            }
+        }
+
+        const PathFinder = new Advanced_Pathfinder(20000, 50);
+
         const calcDist = (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y),
             sleep = async (ms) => new Promise((res) => setTimeout(res, ms)),
             get_num_in_range = ({ min, max }) => Math.round(min + Math.random() * (max - min)),
@@ -131,385 +669,6 @@
                 return `${(num / 1_000_000_000_000).toFixed(2).replace(/\.?0+$/, "")}t`;
             };
 
-        function advanced_pathfinder(me, target, obstacles) {
-            const CELL = 10;
-            const PLAYER_RADIUS = 10;
-            const EXTRA_CLEARANCE = 5;
-            const SEARCH_RADIUS = 500;
-
-            const key = (x, y) => `${x},${y}`;
-
-            const worldToGrid = (x, y) => ({
-                x: Math.floor(x / CELL),
-                y: Math.floor(y / CELL),
-            });
-
-            const gridToWorld = (x, y) => ({
-                x: x * CELL + CELL / 2,
-                y: y * CELL + CELL / 2,
-            });
-
-            const start = worldToGrid(me.x, me.y);
-            const goal = worldToGrid(target.x, target.y);
-
-            settings.pathfinder.target = {
-                x: goal.x,
-                y: goal.y,
-            };
-
-            /*
-             * ---------------------------------------------------------
-             * OBSTACLE COLLISION
-             * ---------------------------------------------------------
-             *
-             * Obstacles are { x, y, r }
-             * where x/y = center and r = radius.
-             *
-             * We inflate the obstacle by the player's radius so the
-             * player's center cannot get too close to it.
-             */
-            const isBlocked = (gx, gy) => {
-                const p = gridToWorld(gx, gy);
-
-                for (const o of obstacles) {
-                    if (!o || typeof o.x !== "number" || typeof o.y !== "number" || typeof o.r !== "number") {
-                        continue;
-                    }
-
-                    const radius = o.r + PLAYER_RADIUS + EXTRA_CLEARANCE;
-
-                    const dx = p.x - o.x;
-                    const dy = p.y - o.y;
-
-                    if (dx * dx + dy * dy <= radius * radius) {
-                        return true;
-                    }
-                }
-
-                return false;
-            };
-
-            /*
-             * ---------------------------------------------------------
-             * GRID
-             * ---------------------------------------------------------
-             *
-             * Do not blindly build the entire 500-cell radius when the
-             * target is nearby. Keep the 500-cell limit, but make the
-             * actual grid only as large as necessary.
-             */
-            const margin = 20;
-
-            const minX = Math.max(start.x - SEARCH_RADIUS, Math.min(start.x, goal.x) - margin);
-
-            const maxX = Math.min(start.x + SEARCH_RADIUS, Math.max(start.x, goal.x) + margin);
-
-            const minY = Math.max(start.y - SEARCH_RADIUS, Math.min(start.y, goal.y) - margin);
-
-            const maxY = Math.min(start.y + SEARCH_RADIUS, Math.max(start.y, goal.y) + margin);
-
-            const grid = new Map();
-
-            for (let y = minY; y <= maxY; y++) {
-                for (let x = minX; x <= maxX; x++) {
-                    grid.set(key(x, y), isBlocked(x, y));
-                }
-            }
-
-            // Always allow the player's current cell.
-            grid.set(key(start.x, start.y), false);
-
-            // Allow the target cell so the path can finish there.
-            grid.set(key(goal.x, goal.y), false);
-
-            /*
-             * ---------------------------------------------------------
-             * A*
-             * ---------------------------------------------------------
-             */
-
-            const neighbors = [
-                [-1, 0, 1],
-                [1, 0, 1],
-                [0, -1, 1],
-                [0, 1, 1],
-
-                [-1, -1, Math.SQRT2],
-                [1, -1, Math.SQRT2],
-                [-1, 1, Math.SQRT2],
-                [1, 1, Math.SQRT2],
-            ];
-
-            const heuristic = (a, b) => {
-                const dx = Math.abs(a.x - b.x);
-                const dy = Math.abs(a.y - b.y);
-
-                // Octile distance for 8-direction movement.
-                return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
-            };
-
-            const open = [
-                {
-                    x: start.x,
-                    y: start.y,
-                    f: heuristic(start, goal),
-                },
-            ];
-
-            const cameFrom = new Map();
-
-            const gScore = new Map();
-            gScore.set(key(start.x, start.y), 0);
-
-            const closed = new Set();
-
-            let found = false;
-
-            while (open.length > 0) {
-                /*
-                 * Find lowest f-score.
-                 */
-                let bestIndex = 0;
-
-                for (let i = 1; i < open.length; i++) {
-                    if (open[i].f < open[bestIndex].f) {
-                        bestIndex = i;
-                    }
-                }
-
-                const current = open.splice(bestIndex, 1)[0];
-                const currentKey = key(current.x, current.y);
-
-                if (closed.has(currentKey)) {
-                    continue;
-                }
-
-                closed.add(currentKey);
-
-                if (current.x === goal.x && current.y === goal.y) {
-                    found = true;
-                    break;
-                }
-
-                for (const [dx, dy, cost] of neighbors) {
-                    const nx = current.x + dx;
-                    const ny = current.y + dy;
-
-                    if (nx < minX || nx > maxX || ny < minY || ny > maxY) {
-                        continue;
-                    }
-
-                    const nKey = key(nx, ny);
-
-                    if (closed.has(nKey)) {
-                        continue;
-                    }
-
-                    if (grid.get(nKey)) {
-                        continue;
-                    }
-
-                    /*
-                     * Prevent diagonal corner cutting.
-                     *
-                     * Example:
-                     *
-                     *   # .
-                     *   . X
-                     *
-                     * Do not allow X to move diagonally through the
-                     * corner between the two blocked cells.
-                     */
-                    if (dx !== 0 && dy !== 0) {
-                        const sideA = key(current.x + dx, current.y);
-                        const sideB = key(current.x, current.y + dy);
-
-                        if (grid.get(sideA) || grid.get(sideB)) {
-                            continue;
-                        }
-                    }
-
-                    const currentG = gScore.get(currentKey) ?? Infinity;
-
-                    const tentativeG = currentG + cost;
-
-                    const oldG = gScore.get(nKey) ?? Infinity;
-
-                    if (tentativeG >= oldG) {
-                        continue;
-                    }
-
-                    cameFrom.set(nKey, currentKey);
-                    gScore.set(nKey, tentativeG);
-
-                    const f = tentativeG + heuristic({ x: nx, y: ny }, goal);
-
-                    open.push({
-                        x: nx,
-                        y: ny,
-                        f,
-                    });
-                }
-            }
-
-            if (!found) {
-                return 0;
-            }
-
-            /*
-             * ---------------------------------------------------------
-             * RECONSTRUCT PATH
-             * ---------------------------------------------------------
-             */
-
-            const rawPath = [];
-
-            let currentKey = key(goal.x, goal.y);
-
-            while (currentKey !== key(start.x, start.y)) {
-                const [x, y] = currentKey.split(",").map(Number);
-
-                rawPath.push({
-                    x,
-                    y,
-                });
-
-                currentKey = cameFrom.get(currentKey);
-
-                if (!currentKey) {
-                    return 0;
-                }
-            }
-
-            rawPath.push({
-                x: start.x,
-                y: start.y,
-            });
-
-            rawPath.reverse();
-
-            /*
-             * ---------------------------------------------------------
-             * LINE OF SIGHT
-             * ---------------------------------------------------------
-             *
-             * Remove unnecessary zig-zag nodes while still checking
-             * the real circular obstacles.
-             */
-            const clearWorldLine = (a, b) => {
-                const dx = b.x - a.x;
-                const dy = b.y - a.y;
-
-                const distance = Math.hypot(dx, dy);
-
-                const steps = Math.max(1, Math.ceil(distance / (CELL / 2)));
-
-                for (let i = 0; i <= steps; i++) {
-                    const t = i / steps;
-
-                    const x = a.x + dx * t;
-                    const y = a.y + dy * t;
-
-                    for (const o of obstacles) {
-                        if (!o || typeof o.x !== "number" || typeof o.y !== "number" || typeof o.r !== "number") {
-                            continue;
-                        }
-
-                        const radius = o.r + PLAYER_RADIUS + EXTRA_CLEARANCE;
-
-                        const ox = x - o.x;
-                        const oy = y - o.y;
-
-                        if (ox * ox + oy * oy <= radius * radius) {
-                            return false;
-                        }
-                    }
-                }
-
-                return true;
-            };
-
-            const smoothPath = [];
-
-            let anchor = 0;
-
-            smoothPath.push(rawPath[0]);
-
-            while (anchor < rawPath.length - 1) {
-                let furthest = anchor + 1;
-
-                for (let i = rawPath.length - 1; i > anchor + 1; i--) {
-                    const a = gridToWorld(rawPath[anchor].x, rawPath[anchor].y);
-
-                    const b = gridToWorld(rawPath[i].x, rawPath[i].y);
-
-                    if (clearWorldLine(a, b)) {
-                        furthest = i;
-                        break;
-                    }
-                }
-
-                smoothPath.push(rawPath[furthest]);
-                anchor = furthest;
-            }
-
-            /*
-             * ---------------------------------------------------------
-             * WAYPOINT SELECTION
-             * ---------------------------------------------------------
-             */
-
-            let waypointIndex = 1;
-
-            /*
-             * Skip waypoints that are already close enough.
-             */
-            while (waypointIndex < smoothPath.length) {
-                const wp = gridToWorld(smoothPath[waypointIndex].x, smoothPath[waypointIndex].y);
-
-                const distance = Math.hypot(wp.x - me.x, wp.y - me.y);
-
-                if (distance > CELL) {
-                    break;
-                }
-
-                waypointIndex++;
-            }
-
-            /*
-             * Reached the target.
-             */
-            if (waypointIndex >= smoothPath.length) {
-                return 0;
-            }
-
-            const waypoint = gridToWorld(smoothPath[waypointIndex].x, smoothPath[waypointIndex].y);
-
-            /*
-             * ---------------------------------------------------------
-             * MOVEMENT DIRECTION
-             * ---------------------------------------------------------
-             */
-
-            const tolerance = 18;
-
-            let move = 0;
-
-            if (me.x < waypoint.x - tolerance) {
-                move |= DIRECTION.RIGHT;
-            } else if (me.x > waypoint.x + tolerance) {
-                move |= DIRECTION.LEFT;
-            }
-
-            if (me.y < waypoint.y - tolerance) {
-                move |= DIRECTION.DOWN;
-            } else if (me.y > waypoint.y + tolerance) {
-                move |= DIRECTION.UP;
-            }
-
-            return move;
-        }
-
         function loadSettings() {
             try {
                 if (localStorage.getItem("settings")) {
@@ -518,7 +677,7 @@
                     s.auto_spike.enabled = false;
                     s.auto_door.enabled = false;
                     s.steal_chest.enabled = false;
-                    console.log("loaded settings");
+                    settings = s;
                     return true;
                 }
             } catch {}
@@ -540,8 +699,8 @@
         let vars = null,
             me = null,
             gui = null,
-            changing = false;
-        window.resources = undefined;
+            changing = false,
+            resources = null;
 
         const sell_ids = {
             BREAD: 16,
@@ -1265,7 +1424,7 @@
             m: 85,
             l: 95,
         };
-        window.MAP_R = {
+        const MAP_R = {
             // f: {
             //     0: sizes.s,
             //     1: sizes.m,
@@ -1692,7 +1851,7 @@
 
                 if (spike) {
                     const adjust = best_angle(me, type);
-                    if (adjust) {
+                    if (adjust != null) {
                         const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
                         user[vars.craft].preview = spike;
 
@@ -1720,7 +1879,7 @@
 
                 if (spike) {
                     const adjust = best_angle(me, type);
-                    if (adjust) {
+                    if (adjust != null) {
                         const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
                         user[vars.craft].preview = spike;
 
@@ -1832,44 +1991,7 @@
                 if (amounts[ItemType.BREAD]) sendAymen([packets.sell, amounts[ItemType.BREAD], sell_ids.BREAD]);
             }
 
-            if (settings.pathfinder.enabled) {
-                const target = { x: settings.pathfinder.x * 100 + 50, y: settings.pathfinder.y * 100 + 50 };
-                let move = 0;
-
-                if (settings.pathfinder.advanced) {
-                    const obstacles = [...(resources || [])];
-
-                    for (const k in RADUIS) {
-                        if (["PLAYERS", "PLOT"].includes(k)) continue;
-                        for (const o of world[vars.units][ITEMS[k]]) {
-                            obstacles.push({
-                                x: o.x,
-                                y: o.y,
-                                r: RADUIS[k],
-                            });
-                        }
-                    }
-
-                    move = advanced_pathfinder(me, target, obstacles);
-                } else {
-                    const x = Math.floor(me.x / 100);
-                    const y = Math.floor(me.y / 100);
-
-                    if (x < target.x) move |= DIRECTION.RIGHT;
-                    if (x > target.x) move |= DIRECTION.LEFT;
-
-                    if (y > target.y) move |= DIRECTION.UP;
-                    if (y < target.y) move |= DIRECTION.DOWN;
-                }
-                if (move != settings.pathfinder.last_move) {
-                    sendAymen([packets.move, move]);
-                    settings.pathfinder.last_move = move;
-                }
-                if (move == 0) {
-                    settings.pathfinder.enabled = false;
-                    gui.update();
-                }
-            }
+            update_pathfinder(timestamp);
         }
 
         // ctx UI
