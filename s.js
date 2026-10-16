@@ -821,6 +821,14 @@
                 cd: 50,
                 last: -1,
             },
+            bottle_in_chest: {
+                k: "Numpad4",
+                enabled: false,
+                type: "press",
+                draw: true,
+                cd: 200,
+                last: -1,
+            },
         };
         loadSettings();
         window.settings = settings;
@@ -834,6 +842,7 @@
             place: 33,
             drop: 6,
             take_chest: 8,
+            put_chest: 9,
             sell: 32,
         };
         const DIRECTION = {
@@ -1766,11 +1775,11 @@
 
             return closest;
         }
-        function get_closest_chest(me) {
+        function get_closest_chest(me, empty = false) {
             let dist = 100;
             let closest = null;
             for (const chest of world[vars.units][ITEMS.CHEST]) {
-                if (chest.lock || !chest.extra || !chest.info) continue;
+                if ((chest.lock || !chest.extra || !chest.info) && !empty) continue;
                 const d = calcDist(me, chest);
 
                 if (d < dist) {
@@ -1979,6 +1988,11 @@
             if (settings.steal_chest.enabled && timestamp - settings.steal_chest.last > settings.steal_chest.cd && get_closest_chest(me)) {
                 settings.steal_chest.last = timestamp;
                 sendAymen([packets.take_chest, 1e8]);
+            }
+
+            if (settings.bottle_in_chest.enabled && timestamp - settings.bottle_in_chest.last > settings.bottle_in_chest.cd && get_closest_chest(me, true) && user[vars.inv].n[ItemType.BOTTLE_EMPTY] > 1e4) {
+                settings.bottle_in_chest.last = timestamp;
+                sendAymen([packets.put_chest, ItemType.BOTTLE_EMPTY, 1e8]);
             }
             if (settings.auto_sell.enabled && timestamp - settings.auto_sell.last > settings.auto_sell.cd) {
                 settings.auto_sell.last = timestamp;
