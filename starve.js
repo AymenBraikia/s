@@ -216,6 +216,15 @@
                 target: null,
                 draw: true,
             },
+            auto_fire: {
+                k: "KeyV",
+                type: "hold",
+                enabled: false,
+                cd: 50,
+                last: -1,
+                target: null,
+                draw: true,
+            },
             auto_wall: {
                 k: "KeyC",
                 type: "hold",
@@ -271,6 +280,8 @@
         };
 
         const ItemType = {
+            FIRE: 204,
+            BIG_FIRE: 209,
             BOOK: 46,
             WOOD_WALL: 264,
 
@@ -412,18 +423,18 @@
             ItemType.REIDITE_SWORD,
             ItemType.DRAGON_SWORD,
             ItemType.LAVA_SWORD,
-            ItemType.CURSED_SWORD,
+            // ItemType.CURSED_SWORD,
             ItemType.PIRATE_SWORD,
 
-            ItemType.IRON_SWORD,
-            ItemType.COPPER_SWORD,
-            ItemType.TOPAZ_SWORD,
-            ItemType.AQUAMARINE_SWORD,
-            ItemType.RUBY_SWORD,
-            ItemType.COAL_SWORD,
+            // ItemType.IRON_SWORD,
+            // ItemType.COPPER_SWORD,
+            // ItemType.TOPAZ_SWORD,
+            // ItemType.AQUAMARINE_SWORD,
+            // ItemType.RUBY_SWORD,
+            // ItemType.COAL_SWORD,
             ItemType.EMERALD_SWORD,
-            ItemType.JADE_SWORD,
-            ItemType.SAPPHIRE_SWORD,
+            // ItemType.JADE_SWORD,
+            // ItemType.SAPPHIRE_SWORD,
 
             ItemType.WOOD_SPEAR,
             ItemType.STONE_SPEAR,
@@ -435,33 +446,33 @@
             ItemType.LAVA_SPEAR,
             ItemType.CRAB_SPEAR,
 
-            ItemType.IRON_SPEAR,
-            ItemType.COPPER_SPEAR,
-            ItemType.TOPAZ_SPEAR,
-            ItemType.AQUAMARINE_SPEAR,
-            ItemType.RUBY_SPEAR,
-            ItemType.COAL_SPEAR,
+            // ItemType.IRON_SPEAR,
+            // ItemType.COPPER_SPEAR,
+            // ItemType.TOPAZ_SPEAR,
+            // ItemType.AQUAMARINE_SPEAR,
+            // ItemType.RUBY_SPEAR,
+            // ItemType.COAL_SPEAR,
             ItemType.EMERALD_SPEAR,
-            ItemType.JADE_SPEAR,
-            ItemType.SAPPHIRE_SPEAR,
+            // ItemType.JADE_SPEAR,
+            // ItemType.SAPPHIRE_SPEAR,
 
-            ItemType.WOOD_BOW,
-            ItemType.STONE_BOW,
-            ItemType.GOLD_BOW,
-            ItemType.DIAMOND_BOW,
-            ItemType.AMETHYST_BOW,
-            ItemType.REIDITE_BOW,
-            ItemType.DRAGON_BOW,
+            ItemType.WOOD_AXE,
+            ItemType.STONE_AXE,
+            ItemType.GOLD_AXE,
+            ItemType.DIAMOND_AXE,
+            ItemType.AMETHYST_AXE,
+            ItemType.REIDITE_AXE,
+            ItemType.EMERALD_AXE,
 
-            ItemType.IRON_BOW,
-            ItemType.COPPER_BOW,
-            ItemType.TOPAZ_BOW,
-            ItemType.AQUAMARINE_BOW,
-            ItemType.RUBY_BOW,
-            ItemType.COAL_BOW,
-            ItemType.EMERALD_BOW,
-            ItemType.JADE_BOW,
-            ItemType.SAPPHIRE_BOW,
+            // ItemType.IRON_AXE,
+            // ItemType.COPPER_AXE,
+            // ItemType.TOPAZ_AXE,
+            // ItemType.AQUAMARINE_AXE,
+            // ItemType.RUBY_AXE,
+            // ItemType.COAL_AXE,
+            // ItemType.EMERALD_AXE,
+            // ItemType.JADE_AXE,
+            // ItemType.SAPPHIRE_AXE,
         ]);
 
         const sizes = {
@@ -909,6 +920,26 @@
 
                         settings.auto_wall.last = timestamp;
                         settings.auto_wall.cd = get_num_in_range({ min: 50, max: 100 });
+                    }
+                }
+            }
+            // auto fire
+            if (settings.auto_fire.enabled && !user.build.wait && timestamp - settings.auto_fire.last > settings.auto_fire.cd) {
+                let fire, type;
+
+                const amounts = user[vars.inv][vars.n];
+                if (amounts[ItemType.FIRE]) ((fire = ItemType.FIRE), (type = ITEMS.FIRE));
+                else if (amounts[ItemType.BIG_FIRE]) ((fire = ItemType.BIG_FIRE), (type = ITEMS.BIG_FIRE));
+                if (fire) {
+                    const adjust = best_angle(me, type);
+                    if (adjust != null) {
+                        const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+
+                        sendAymen([packets.angle, angle]);
+                        sendAymen([packets.place, fire, angle, 0]);
+
+                        settings.auto_fire.last = timestamp;
+                        settings.auto_fire.cd = get_num_in_range({ min: 50, max: 100 });
                     }
                 }
             }
