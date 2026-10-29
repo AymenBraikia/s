@@ -157,15 +157,13 @@
         function saveSettings() {
             localStorage.setItem("settings", JSON.stringify(settings));
         }
-
         const canvas = document.querySelector("canvas"),
             ctx = canvas.getContext("2d"),
             PI2M = 2 * window.Math.PI,
             sword_range = 135,
+            axe_range = 100,
             spear_range = 195,
-            pirate_range = 140,
-            wrench_range = 110,
-            bow_range = 1500;
+            pirate_range = 140;
 
         let vars = null,
             world = null,
@@ -173,6 +171,7 @@
             user = null,
             me = null,
             gui = null,
+            hidden = false,
             resources = null;
         const STATE = {
             DELETE: 1,
@@ -185,19 +184,28 @@
             IDLE: 128,
             WALK: 256,
         };
-
         let settings = {
+            auto_craft: {
+                enabled: false,
+                draw: true,
+                k: "KeyE",
+                type: "press",
+                last: 0,
+                id: null,
+                cd: 50,
+            },
             auto_respawn: {
                 enabled: false,
                 draw: true,
                 k: "Numpad0",
                 type: "press",
             },
-            // timers: {
-            //     orange_gem: null,
-            //     emerald: null,
-            //     bandage: null,
-            // },
+            timers: {
+                heal: false,
+                next: null,
+                enabled: true,
+                draw: false,
+            },
             auto_land: {
                 last: -1,
                 v: 0,
@@ -217,7 +225,7 @@
                 draw: true,
             },
             auto_fire: {
-                k: "KeyV",
+                k: "KeyX",
                 type: "hold",
                 enabled: false,
                 cd: 50,
@@ -264,7 +272,8 @@
                 last: -1,
             },
         };
-        loadSettings();
+        // loadSettings();
+
         Aymen.settings = settings;
 
         const packets = {
@@ -353,7 +362,7 @@
             REIDITE_DOOR_SPIKE: 62,
 
             WORKBENCH: 2,
-            CHEST: 18,
+            CHEST: 11,
             OVEN: 43,
             TOTEM: 38,
             FIRE: 1,
@@ -377,6 +386,8 @@
         const RADUIS = {
             PLOT: 50,
             TOTEM: 50,
+            FIRE: 30,
+            BIG_FIRE: 40,
             PLAYERS: 25,
             CHEST: 35,
             EMERALD_MACHINE: 60,
@@ -783,17 +794,15 @@
 
             return closest;
         }
-        function get_closest_chest(me, empty = false) {
-            let dist = 100;
-            let closest = null;
+        function get_closest_chest(me) {
+            const limit = 180;
+            const closest = [];
             for (const chest of world[vars.units][ITEMS.CHEST]) {
-                if ((chest.lock || !chest.extra || !chest.info) && !empty) continue;
+                if (chest.lock || !chest.action) continue;
+
                 const d = calcDist(me, chest);
 
-                if (d < dist) {
-                    dist = d;
-                    closest = chest;
-                }
+                if (d < limit) closest.push(chest);
             }
 
             return closest;
@@ -811,7 +820,8 @@
         }
 
         document.addEventListener("keydown", (k) => {
-            if (document.getElementById("chat_block").style.display == "inline-block" || document.getElementById("commandMainBox").style.display == "inline-block") return;
+            if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN || document.getElementById("chat_block").style.display == "inline-block" || document.getElementById("commandMainBox").style.display == "inline-block")
+                return;
             for (const s of Object.values(settings)) {
                 if (s.type == "press") continue;
                 if (k.code == s.k) s.enabled = true;
@@ -820,9 +830,13 @@
         });
 
         document.addEventListener("keyup", (k) => {
-            if (document.getElementById("chat_block").style.display == "inline-block" || document.getElementById("commandMainBox").style.display == "inline-block") return;
+            if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN || document.getElementById("chat_block").style.display == "inline-block" || document.getElementById("commandMainBox").style.display == "inline-block")
+                return;
 
-            for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
+            if (k.code == "Escape") {
+                gui.hide();
+                hidden = !hidden;
+            } else for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
             gui.update();
         });
 
@@ -834,25 +848,38 @@
                 client = Aymen.client;
                 user = Aymen.user;
                 vars = Aymen.vars;
-                Aymen.log(typeof world, typeof client, typeof user, typeof vars);
                 return;
             }
 
-            if (Aymen.logPkts && !Aymen.set) {
-                Aymen.set = client[vars._ws].send;
-                client[vars._ws].send = new Proxy(Aymen.set, {
-                    apply(target, thisArg, args) {
-                        Aymen.log(args[0]);
-                        return Reflect.apply(target, thisArg, args);
-                    },
-                });
-            }
+            if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN) return;
 
             function sendAymen(msg) {
                 if (client[vars._ws] && client[vars._ws].readyState == WebSocket.OPEN) client[vars._ws].send(JSON.stringify(msg));
             }
 
             const timestamp = Date.now();
+
+            if (!client[vars._ws].noice) {
+                client[vars._ws].noice = true;
+
+                client[vars._ws].addEventListener("message", packet_handler);
+
+                Aymen.send = client[vars._ws].send;
+                client[vars._ws].send = new Proxy(Aymen.send, {
+                    apply(target, thisArg, args) {
+                        if (typeof args[0] == "string") {
+                            const pkt = JSON.parse(args[0]);
+                            window.logger && Aymen.log(pkt);
+                            if (pkt[0] == packets.craft) {
+                                me.right != ItemType.BOOK && sendAymen([packets.equipe, ItemType.BOOK]);
+                                settings.auto_craft.id = pkt[1];
+                            }
+                        }
+
+                        return Reflect.apply(target, thisArg, args);
+                    },
+                });
+            }
 
             for (const p of world[vars.units][ITEMS.PLAYERS])
                 if (p[vars.pid] == user.id) {
@@ -864,7 +891,7 @@
             if (!me) return;
             Aymen.me = me;
 
-            draw_ui();
+            if (!hidden) draw_ui();
 
             if (world[vars.map]) {
                 Aymen.ress = [];
@@ -874,8 +901,17 @@
                 }
             }
 
+            // auto craft
+            if (settings.auto_craft.enabled && timestamp - settings.auto_craft.last > settings.auto_craft.cd) {
+                settings.auto_craft.last = timestamp;
+                sendAymen([packets.craft, settings.auto_craft.id]);
+            }
+
             // drop sword
-            if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) sendAymen([packets.drop, me.right]);
+            if (settings.drop_sword.enabled && timestamp - settings.drop_sword.last > settings.drop_sword.cd && weapons.has(me.right)) {
+                settings.drop_sword.last = timestamp;
+                sendAymen([packets.drop, me.right]);
+            }
 
             // auto spike
             // if (settings.auto_spike.enabled && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
@@ -930,6 +966,7 @@
                 const amounts = user[vars.inv][vars.n];
                 if (amounts[ItemType.FIRE]) ((fire = ItemType.FIRE), (type = ITEMS.FIRE));
                 else if (amounts[ItemType.BIG_FIRE]) ((fire = ItemType.BIG_FIRE), (type = ITEMS.BIG_FIRE));
+
                 if (fire) {
                     const adjust = best_angle(me, type);
                     if (adjust != null) {
@@ -959,7 +996,6 @@
             if (settings.aimbot.enabled) {
                 if (weapons.has(me.right)) {
                     const target = get_closest_player(me, get_range(me.right));
-                    // Aymen.log(target, get_range(me.right));
                     if (target) {
                         settings.aimbot.target = target;
                         let angle = calcAngle(me, target);
@@ -1014,9 +1050,129 @@
                 settings.aimbot.org_angle = null;
             }
 
-            if (settings.steal_chest.enabled && timestamp - settings.steal_chest.last > settings.steal_chest.cd && get_closest_chest(me)) {
-                settings.steal_chest.last = timestamp;
-                sendAymen([packets.take_chest, 1e8]);
+            if (settings.steal_chest.enabled && timestamp - settings.steal_chest.last > settings.steal_chest.cd) {
+                const chests = get_closest_chest(me);
+                for (const chest of chests) {
+                    sendAymen([packets.take_chest, chest[vars.pid], chest.id]);
+                    settings.steal_chest.last = timestamp;
+                }
+            }
+        }
+
+        // function packet_handler(e) {
+        //     const msg = e.data;
+
+        //     if (typeof msg == "string") {
+        //     } else {
+        //         const data = new Uint8Array(msg);
+        //         Aymen.log(data);
+        //     }
+        // }
+        function packet_handler(event) {
+            if (typeof event.data === "string") {
+                const msg = JSON.parse(event.data);
+                if (msg[0] === 3) {
+                    // spawn
+                    // const mode = msg[1]; // game mode
+                    // const x = msg[3]; // spawn position X
+                    // const y = msg[10]; // spawn position Y
+                    // const time = msg[5]; // day/night time
+                    const myId = msg[9]; // your player id
+                    const unitMul = msg[7]; // units per player
+                    const myUnit = myId * unitMul; // your unit id in entity updates (opcode 0/1)
+                    // const players = msg[4]; // [{ i: id, n: name, l: level, ... }]
+
+                    if (world[vars.fast_units][myUnit])
+                        world[vars.fast_units][myUnit].gauges = {
+                            life: 200,
+                            food: 100,
+                            cold: 100,
+                            water: 100,
+                            oxygen: 100,
+                            heat: 0,
+                            bandage: 0,
+                        };
+                    settings.timers.next = Date.now() + 5e3;
+                }
+                return;
+            }
+
+            // The game's own onmessage already XOR'd event.data in place, so only the transform is left.
+            const b = new Uint8Array(event.data).slice(); // copy so the game's buffer isn't touched
+            const b0 = b[0],
+                b1 = b[1],
+                s = b0 ^ b1;
+            const rotl = (v, r) => ((v << (r & 7)) | (v >> (8 - (r & 7)))) & 255;
+
+            for (let i = 2; i < b.length; i++) {
+                const m = (b0 + i) & 255;
+                switch (b0 % 4) {
+                    case 0:
+                        if (s === 0 || s === 3) b[i] = rotl(b[i] ^ m, 3);
+                        else if (s === 1) b[i] ^= m;
+                        else if (s === 5) b[i] = (b[i] ^ m) - m + b0;
+                        else b[i] ^= ~m;
+                        break;
+                    case 1:
+                        b[i] ^= rotl(b0, i + b1);
+                        break;
+                    case 2:
+                        b[i] ^= i % 2 ? b1 : b0;
+                        break;
+                    case 3:
+                        b[i] ^= (b0 * (i + 1)) ^ b1;
+                        break;
+                }
+            }
+
+            const data = b.slice(2); // data[0] = opcode, same array the game switches on
+            switch (data[0]) {
+                case 0:
+                case 1:
+                    // entity update
+                    break;
+                case 21:
+                    break;
+                case 25:
+                    // dead
+                    break;
+
+                case 16:
+                    // gauges update
+                    if (me)
+                        me.gauges = {
+                            life: data[1],
+                            food: data[2],
+                            cold: data[3],
+                            water: data[4],
+                            oxygen: data[5],
+                            heat: data[6],
+                            bandage: data[7],
+                        };
+                    settings.timers.next = Date.now() + 5e3;
+                    settings.timers.heal = !settings.timers.heal;
+                    break;
+
+                case 37:
+                    me.hp = data[1] * 2;
+                    break;
+                case 38:
+                    gauges.food = data[1];
+                    break;
+                case 39:
+                    gauges.water = data[1];
+                    break;
+                case 55:
+                    gauges.heat = data[1];
+                    break;
+                case 56:
+                    gauges.cold = data[1];
+                    break;
+                case 71:
+                    gauges.bandage = data[1];
+                    break;
+                default:
+                    break;
             }
         }
 
@@ -1072,42 +1228,10 @@
                     ctx.restore();
                 }
             }
-            return;
 
-            if (settings.aimbot.enabled || settings.show_range.enabled) {
+            if (me.hp) {
                 ctx.save();
-
-                ctx.lineWidth = 3;
-                ctx.globalAlpha = 0.6;
-
-                if (me.right != ItemType.WRENCH && me.right != ItemType.GOLD_WRENCH) {
-                    ctx.strokeStyle = get_closest_player(me, sword_range + (me[vars.fly] ? 20 : 0)) ? "lime" : "red";
-                    ctx.beginPath();
-                    ctx.arc(cam_x, cam_y, sword_range + (me[vars.fly] ? 20 : 0), 0, PI2M);
-                    ctx.stroke();
-
-                    ctx.strokeStyle = get_closest_player(me, pirate_range + (me[vars.fly] ? 20 : 0)) ? "lime" : "red";
-                    ctx.beginPath();
-                    ctx.arc(cam_x, cam_y, pirate_range + (me[vars.fly] ? 20 : 0), 0, PI2M);
-                    ctx.stroke();
-
-                    ctx.strokeStyle = get_closest_player(me, spear_range + (me[vars.fly] ? 18 : 0)) ? "lime" : "red";
-                    ctx.beginPath();
-                    ctx.arc(cam_x, cam_y, spear_range + (me[vars.fly] ? 18 : 0), 0, PI2M);
-                    ctx.stroke();
-                } else {
-                    ctx.strokeStyle = "red";
-                    ctx.beginPath();
-                    ctx.arc(cam_x, cam_y, wrench_range, me.angle + -PI2M / 13, me.angle + PI2M / 13);
-                    ctx.stroke();
-                }
-
-                ctx.restore();
-            }
-
-            if (user[vars.gauges].l < 1) {
-                ctx.save();
-                const h = Math.round(user[vars.gauges].l * 200);
+                const h = Math.round(me.hp);
                 const t = h + "hp";
 
                 ctx.font = "24px Baloo Paaji";
@@ -1119,6 +1243,7 @@
                 ctx.strokeStyle = "black";
 
                 ctx.fillStyle = h > 100 ? "lime" : h > 50 ? "orange" : "red";
+
                 const r = ctx.measureText(t);
 
                 ctx.strokeText(t, cam_x - r.width / 2, cam_y + 50);
@@ -1127,24 +1252,27 @@
                 ctx.restore();
             }
 
-            const doors = [...world[vars.units][ITEMS.REIDITE_DOOR_SPIKE], ...world[vars.units][ITEMS.STONE_DOOR_SPIKE], ...world[vars.units][ITEMS.EMERALD_DOOR_SPIKE]];
+            if (settings.timers.enabled) {
+                ctx.save();
+                const h = Math.round(settings.timers.next - Date.now());
+                const t = (h / 1e3).toFixed(2) + "s";
 
-            if (settings.show_range.enabled)
-                for (const door of doors) {
-                    ctx.save();
+                ctx.font = "24px Baloo Paaji";
+                ctx.textBaseline = "top";
+                ctx.textAlign = "left";
+                ctx.globalAlpha = 0.8;
 
-                    ctx.lineWidth = 3;
-                    ctx.strokeStyle = calcDist(me, door) <= wrench_range + 40 ? "lime" : "red";
-                    ctx.beginPath();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "black";
 
-                    const x = user[vars.cam].x + door.x,
-                        y = user[vars.cam].y + door.y;
+                ctx.fillStyle = settings.timers.heal ? "lime" : "red";
+                const r = ctx.measureText(t);
 
-                    ctx.arc(x, y, 40, 0, PI2M);
-                    ctx.stroke();
+                ctx.strokeText(t, cam_x - r.width / 2, cam_y + 80);
 
-                    ctx.restore();
-                }
+                ctx.fillText(t, cam_x - r.width / 2, cam_y + 80);
+                ctx.restore();
+            }
         }
 
         function changeKeybind(obj) {
@@ -1166,23 +1294,22 @@
             gui = new window.GUI_MODULE();
             gui.start();
 
-            // gui.register({ type: "folder", label: "Visuals" });
-            // gui.register({ type: "folder", label: "Misc" });
+            gui.register({ type: "folder", label: "Visuals" });
+            gui.register({ type: "folder", label: "Misc" });
             // gui.register({ type: "folder", label: "Others" });
-            // gui.register({ type: "folder", label: "Settings" });
+            gui.register({ type: "folder", label: "Settings" });
 
-            // gui.register({ type: "checkbox", label: "Auto Land", folder: "Misc", object: settings.auto_land, prop: "enabled" });
-            // gui.register({ type: "checkbox", label: "Aimbot", folder: "Misc", object: settings.aimbot, prop: "enabled" });
-            // gui.register({ type: "checkbox", label: "Steal Chest", folder: "Misc", object: settings.steal_chest, prop: "enabled" });
-            // gui.register({ type: "checkbox", label: "Auto Sell", folder: "Misc", object: settings.auto_sell, prop: "enabled" });
-            // gui.register({ type: "checkbox", label: "Auto Respawn", folder: "Misc", object: settings.auto_respawn, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Auto Land", folder: "Misc", object: settings.auto_land, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Aimbot", folder: "Misc", object: settings.aimbot, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Steal Chest", folder: "Misc", object: settings.steal_chest, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Auto Respawn", folder: "Misc", object: settings.auto_respawn, prop: "enabled" });
 
-            // for (const e in settings) {
-            //     if (settings[e].k) {
-            //         gui.register({ type: "display", label: e.replaceAll("_", " "), folder: "Settings", object: settings[e], prop: "k" });
-            //         gui.register({ type: "button", label: "Set " + e.replaceAll("_", " ") + " key", folder: "Settings", action: () => changeKeybind(settings[e]) });
-            //     }
-            // }
+            for (const e in settings) {
+                if (settings[e].k) {
+                    gui.register({ type: "display", label: e.replaceAll("_", " "), folder: "Settings", object: settings[e], prop: "k" });
+                    gui.register({ type: "button", label: "Set " + e.replaceAll("_", " ") + " key", folder: "Settings", action: () => changeKeybind(settings[e]) });
+                }
+            }
         }
 
         initUI();
