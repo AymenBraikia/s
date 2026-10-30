@@ -1055,6 +1055,7 @@
                             heat: 0,
                             bandage: 0,
                         };
+                    settings.timers.heal = false;
                     settings.timers.next = Date.now() + 5e3;
                 }
                 return;
