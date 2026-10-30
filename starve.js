@@ -24,116 +24,38 @@
             get_range = (r) => {
                 switch (r) {
                     case ItemType.WOOD_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.STONE_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.GOLD_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.DIAMOND_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.AMETHYST_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.REIDITE_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.DRAGON_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.LAVA_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.CURSED_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.PIRATE_SWORD:
                         return pirate_range + (me[vars.fly] ? 20 : 0);
 
-                    case ItemType.IRON_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.COPPER_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.TOPAZ_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.AQUAMARINE_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.RUBY_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.COAL_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
                     case ItemType.EMERALD_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.JADE_SWORD:
-                        return sword_range + (me[vars.fly] ? 20 : 0);
-                    case ItemType.SAPPHIRE_SWORD:
                         return sword_range + (me[vars.fly] ? 20 : 0);
 
                     case ItemType.WOOD_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.STONE_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.GOLD_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.DIAMOND_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.AMETHYST_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.REIDITE_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.DRAGON_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.LAVA_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.CRAB_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-
-                    case ItemType.IRON_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.COPPER_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.TOPAZ_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.AQUAMARINE_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.RUBY_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.COAL_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
                     case ItemType.EMERALD_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.JADE_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
-                    case ItemType.SAPPHIRE_SPEAR:
-                        return spear_range + (me[vars.fly] ? 18 : 0);
+                        return spear_range + (me[vars.fly] ? 20 : 0);
 
-                    case ItemType.WOOD_BOW:
-                        return bow_range;
-                    case ItemType.STONE_BOW:
-                        return bow_range;
-                    case ItemType.GOLD_BOW:
-                        return bow_range;
-                    case ItemType.DIAMOND_BOW:
-                        return bow_range;
-                    case ItemType.AMETHYST_BOW:
-                        return bow_range;
-                    case ItemType.REIDITE_BOW:
-                        return bow_range;
-                    case ItemType.DRAGON_BOW:
-                        return bow_range;
-
-                    case ItemType.IRON_BOW:
-                        return bow_range;
-                    case ItemType.COPPER_BOW:
-                        return bow_range;
-                    case ItemType.TOPAZ_BOW:
-                        return bow_range;
-                    case ItemType.AQUAMARINE_BOW:
-                        return bow_range;
-                    case ItemType.RUBY_BOW:
-                        return bow_range;
-                    case ItemType.COAL_BOW:
-                        return bow_range;
-                    case ItemType.EMERALD_BOW:
-                        return bow_range;
-                    case ItemType.JADE_BOW:
-                        return bow_range;
-                    case ItemType.SAPPHIRE_BOW:
-                        return bow_range;
+                    case ItemType.WOOD_AXE:
+                    case ItemType.STONE_AXE:
+                    case ItemType.GOLD_AXE:
+                    case ItemType.DIAMOND_AXE:
+                    case ItemType.AMETHYST_AXE:
+                    case ItemType.REIDITE_AXE:
+                        return axe_range + (me[vars.fly] ? 20 : 0);
 
                     default:
                         return 0;
@@ -161,9 +83,42 @@
             ctx = canvas.getContext("2d"),
             PI2M = 2 * window.Math.PI,
             sword_range = 135,
-            axe_range = 100,
+            axe_range = 110,
             spear_range = 195,
             pirate_range = 140;
+
+        const dmg_dealers = {
+            mobs: {
+                WOLF: { range: 50, dmg: 40 },
+                SPIDER: { range: 50, dmg: 30 },
+                BOAR: { range: 50, dmg: 50 },
+                HAWK: { range: 50, dmg: 30 },
+                CRAB: { range: 50, dmg: 20 },
+                KING_CRAB: { range: 50, dmg: 70 },
+
+                FOX: { range: 50, dmg: 30 },
+                BEAR: { range: 50, dmg: 50 },
+                BABY_MAMOTH: { range: 50, dmg: 50 },
+                MAMOTH: { range: 50, dmg: 70 },
+                BABY_DRAGON: { range: 50, dmg: 30 },
+                DRAGON: { range: 50, dmg: 50 },
+
+                BABY_LAVA: { range: 50, dmg: 50 },
+                LAVA_DRAGON: { range: 50, dmg: 90 },
+                FIRE_MONSTER: { range: 50, dmg: 30 },
+
+                PIRANAH: { range: 50, dmg: 30 },
+                KRAKEN: { range: 50, dmg: 40 },
+
+                SANDWORM: { range: 50, dmg: 40 },
+                VULTURE: { range: 50, dmg: 40 },
+            },
+            BLIZZARD: 10,
+            SANDSTORM: 10,
+            EFFECT: 2,
+
+            GAUGES: 20,
+        };
 
         let vars = null,
             world = null,
@@ -185,6 +140,10 @@
             WALK: 256,
         };
         let settings = {
+            player_on_top: {
+                enabled: true,
+                draw: false,
+            },
             auto_craft: {
                 enabled: false,
                 draw: true,
@@ -382,6 +341,8 @@
             STONE_BRIDGE: 67,
             TOWER: 65,
             PLOT: 42,
+            CRATE: 108,
+            DEAD: 104,
         };
         const RADUIS = {
             PLOT: 50,
@@ -851,7 +812,19 @@
                 return;
             }
 
+            if (!Aymen.reconnect && user.reconnect.enabled) {
+                Aymen.inv_items = new Array(...user[vars.inv][vars.items]);
+                Aymen.reconnect = true;
+                Aymen.log("nigga", Aymen.inv_items);
+            }
+
             if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN) return;
+
+            if (Aymen.reconnect && !user.reconnect.enabled) {
+                user[vars.inv][vars.items] = Aymen.inv_items;
+                Aymen.reconnect = false;
+                Aymen.log(Aymen.inv_items);
+            }
 
             function sendAymen(msg) {
                 if (client[vars._ws] && client[vars._ws].readyState == WebSocket.OPEN) client[vars._ws].send(JSON.stringify(msg));
@@ -1059,15 +1032,6 @@
             }
         }
 
-        // function packet_handler(e) {
-        //     const msg = e.data;
-
-        //     if (typeof msg == "string") {
-        //     } else {
-        //         const data = new Uint8Array(msg);
-        //         Aymen.log(data);
-        //     }
-        // }
         function packet_handler(event) {
             if (typeof event.data === "string") {
                 const msg = JSON.parse(event.data);
@@ -1081,7 +1045,6 @@
                     const unitMul = msg[7]; // units per player
                     const myUnit = myId * unitMul; // your unit id in entity updates (opcode 0/1)
                     // const players = msg[4]; // [{ i: id, n: name, l: level, ... }]
-
                     if (world[vars.fast_units][myUnit])
                         world[vars.fast_units][myUnit].gauges = {
                             life: 200,
@@ -1129,9 +1092,9 @@
             switch (data[0]) {
                 case 0:
                 case 1:
-                    // entity update
                     break;
-                case 21:
+                case 3:
+                    Aymen.log(data[0]);
                     break;
                 case 25:
                     // dead
@@ -1229,30 +1192,29 @@
                 }
             }
 
-            if (me.hp) {
-                ctx.save();
-                const h = Math.round(me.hp);
-                const t = h + "hp";
-
-                ctx.font = "24px Baloo Paaji";
-                ctx.textBaseline = "top";
-                ctx.textAlign = "left";
-                ctx.globalAlpha = 0.8;
-
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = "black";
-
-                ctx.fillStyle = h > 100 ? "lime" : h > 50 ? "orange" : "red";
-
-                const r = ctx.measureText(t);
-
-                ctx.strokeText(t, cam_x - r.width / 2, cam_y + 50);
-
-                ctx.fillText(t, cam_x - r.width / 2, cam_y + 50);
-                ctx.restore();
-            }
-
             if (settings.timers.enabled) {
+                if (me.hp) {
+                    ctx.save();
+                    const h = Math.round(me.hp);
+                    const t = h + "hp";
+
+                    ctx.font = "24px Baloo Paaji";
+                    ctx.textBaseline = "top";
+                    ctx.textAlign = "left";
+                    ctx.globalAlpha = 0.8;
+
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = "black";
+
+                    ctx.fillStyle = h > 100 ? "lime" : h > 50 ? "orange" : "red";
+
+                    const r = ctx.measureText(t);
+
+                    ctx.strokeText(t, cam_x - r.width / 2, cam_y + 50);
+
+                    ctx.fillText(t, cam_x - r.width / 2, cam_y + 50);
+                    ctx.restore();
+                }
                 ctx.save();
                 const h = Math.round(settings.timers.next - Date.now());
                 const t = (h / 1e3).toFixed(2) + "s";
@@ -1298,6 +1260,9 @@
             gui.register({ type: "folder", label: "Misc" });
             // gui.register({ type: "folder", label: "Others" });
             gui.register({ type: "folder", label: "Settings" });
+
+            gui.register({ type: "checkbox", label: "Player On Top", folder: "Visuals", object: settings.player_on_top, prop: "enabled" });
+            gui.register({ type: "checkbox", label: "Timers", folder: "Visuals", object: settings.timers, prop: "enabled" });
 
             gui.register({ type: "checkbox", label: "Auto Land", folder: "Misc", object: settings.auto_land, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Aimbot", folder: "Misc", object: settings.aimbot, prop: "enabled" });
