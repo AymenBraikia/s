@@ -700,6 +700,7 @@
             me = null,
             gui = null,
             changing = false,
+            hidden = false,
             resources = null;
 
         const sell_ids = {
@@ -1813,7 +1814,11 @@
 
         document.addEventListener("keyup", (k) => {
             if (changing || user[vars.cmdInput].open || user[vars.chatInput].open || (!user && user.id == 0)) return;
-            for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
+
+            if (k.code == "Escape") {
+                gui.hide();
+                hidden = !hidden;
+            } else for (const s of Object.values(settings)) if (k.code == s.k) s.enabled = s.type == "hold" ? false : !s.enabled;
             gui.update();
         });
 
@@ -1833,7 +1838,7 @@
             if (!me) return;
             window.aymen = me;
 
-            draw_ui();
+            if (!hidden) draw_ui();
 
             // timers
             if (me.action & STATE.HEAL) {
