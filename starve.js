@@ -147,11 +147,20 @@
             auto_craft: {
                 enabled: false,
                 draw: true,
-                k: "KeyE",
+                k: "KeyC",
                 type: "press",
                 last: 0,
                 id: null,
                 cd: 50,
+            },
+            spectator: {
+                enabled: false,
+                draw: true,
+                k: "KeyE",
+                type: "press",
+                direction: null,
+                x: 0,
+                y: 0,
             },
             auto_respawn: {
                 enabled: false,
@@ -245,6 +254,7 @@
             drop: 2,
             take_chest: 18,
             put_chest: 29,
+            move: 37,
         };
 
         const ItemType = {
@@ -812,19 +822,7 @@
                 return;
             }
 
-            if (!Aymen.reconnect && user.reconnect.enabled) {
-                Aymen.inv_items = new Array(...user[vars.inv][vars.items]);
-                Aymen.reconnect = true;
-                Aymen.log("nigga", Aymen.inv_items);
-            }
-
             if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN) return;
-
-            if (Aymen.reconnect && !user.reconnect.enabled) {
-                user[vars.inv][vars.items] = Aymen.inv_items;
-                Aymen.reconnect = false;
-                Aymen.log(Aymen.inv_items);
-            }
 
             function sendAymen(msg) {
                 if (client[vars._ws] && client[vars._ws].readyState == WebSocket.OPEN) client[vars._ws].send(JSON.stringify(msg));
@@ -842,10 +840,24 @@
                     apply(target, thisArg, args) {
                         if (typeof args[0] == "string") {
                             const pkt = JSON.parse(args[0]);
-                            window.logger && Aymen.log(pkt);
+
+                            if (pkt[0] == 15 && settings.spectator.enabled) {
+                                args[1] = Math.abs(settings.spectator.x);
+                                args[2] = Math.abs(settings.spectator.y);
+                                return Reflect.apply(target, thisArg, args);
+                            }
+
+                            if (Array.isArray(window.logger) && window.logger.includes(pkt[0])) Aymen.log(pkt);
+                            else if (window.logger == true) Aymen.log(pkt);
+
                             if (pkt[0] == packets.craft) {
                                 me.right != ItemType.BOOK && sendAymen([packets.equipe, ItemType.BOOK]);
                                 settings.auto_craft.id = pkt[1];
+                            }
+                        } else {
+                            if (settings.spectator.enabled && args[0][0] == packets.move) {
+                                settings.spectator.direction = args[0][1];
+                                return;
                             }
                         }
 
@@ -874,6 +886,56 @@
                 }
             }
 
+            // spectator
+            if (settings.spectator.enabled) {
+                switch (settings.spectator.direction) {
+                    case 1:
+                        user[vars.cam].x -= 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 2:
+                        user[vars.cam].x += 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 4:
+                        user[vars.cam].y += 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 5:
+                        user[vars.cam].x -= 50;
+                        user[vars.cam].y += 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 6:
+                        user[vars.cam].x += 50;
+                        user[vars.cam].y += 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 8:
+                        user[vars.cam].y -= 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 9:
+                        user[vars.cam].x -= 50;
+                        user[vars.cam].y -= 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                    case 10:
+                        user[vars.cam].x += 50;
+                        user[vars.cam].y -= 50;
+                        settings.spectator.x = user[vars.cam].x;
+                        settings.spectator.y = user[vars.cam].y;
+                        break;
+                }
+            }
+
             // auto craft
             if (settings.auto_craft.enabled && timestamp - settings.auto_craft.last > settings.auto_craft.cd) {
                 settings.auto_craft.last = timestamp;
@@ -888,7 +950,7 @@
 
             // auto spike
             // if (settings.auto_spike.enabled && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
-            if (settings.auto_spike.enabled && !user.build.wait && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
+            if (settings.auto_spike.enabled && timestamp - settings.auto_spike.last > settings.auto_spike.cd) {
                 let spike, type;
 
                 const amounts = user[vars.inv][vars.n];
@@ -913,7 +975,7 @@
                 }
             }
             // auto wall
-            if (settings.auto_wall.enabled && !user.build.wait && timestamp - settings.auto_wall.last > settings.auto_wall.cd) {
+            if (settings.auto_wall.enabled && timestamp - settings.auto_wall.last > settings.auto_wall.cd) {
                 let wall, type;
 
                 const amounts = user[vars.inv][vars.n];
@@ -1095,7 +1157,7 @@
                 case 1:
                     break;
                 case 3:
-                    Aymen.log(data[0]);
+                    // Aymen.log(data[0]);
                     break;
                 case 25:
                     // dead
@@ -1121,19 +1183,19 @@
                     me.hp = data[1] * 2;
                     break;
                 case 38:
-                    gauges.food = data[1];
+                    if (me) me.gauges.food = data[1];
                     break;
                 case 39:
-                    gauges.water = data[1];
+                    if (me) me.gauges.water = data[1];
                     break;
                 case 55:
-                    gauges.heat = data[1];
+                    if (me) me.gauges.heat = data[1];
                     break;
                 case 56:
-                    gauges.cold = data[1];
+                    if (me) me.gauges.cold = data[1];
                     break;
                 case 71:
-                    gauges.bandage = data[1];
+                    if (me) me.gauges.bandage = data[1];
                     break;
                 default:
                     break;
