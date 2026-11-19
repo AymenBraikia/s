@@ -728,7 +728,8 @@
 
         function best_angle(me, item, angle = null) {
             const stepDeg = 1;
-            const maxSteps = 60;
+            const maxSteps = 40;
+            // const maxSteps = 60;
 
             const base = typeof settings.aimbot.angle == "number" ? settings.aimbot.angle : (angle ?? me.angle);
             const step = (stepDeg * Math.PI) / 180;
