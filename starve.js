@@ -87,39 +87,6 @@
             spear_range = 195,
             pirate_range = 140;
 
-        const dmg_dealers = {
-            mobs: {
-                WOLF: { range: 50, dmg: 40 },
-                SPIDER: { range: 50, dmg: 30 },
-                BOAR: { range: 50, dmg: 50 },
-                HAWK: { range: 50, dmg: 30 },
-                CRAB: { range: 50, dmg: 20 },
-                KING_CRAB: { range: 50, dmg: 70 },
-
-                FOX: { range: 50, dmg: 30 },
-                BEAR: { range: 50, dmg: 50 },
-                BABY_MAMOTH: { range: 50, dmg: 50 },
-                MAMOTH: { range: 50, dmg: 70 },
-                BABY_DRAGON: { range: 50, dmg: 30 },
-                DRAGON: { range: 50, dmg: 50 },
-
-                BABY_LAVA: { range: 50, dmg: 50 },
-                LAVA_DRAGON: { range: 50, dmg: 90 },
-                FIRE_MONSTER: { range: 50, dmg: 30 },
-
-                PIRANAH: { range: 50, dmg: 30 },
-                KRAKEN: { range: 50, dmg: 40 },
-
-                SANDWORM: { range: 50, dmg: 40 },
-                VULTURE: { range: 50, dmg: 40 },
-            },
-            BLIZZARD: 10,
-            SANDSTORM: 10,
-            EFFECT: 2,
-
-            GAUGES: 20,
-        };
-
         let vars = null,
             world = null,
             client = null,
@@ -128,6 +95,7 @@
             gui = null,
             hidden = false,
             resources = null;
+
         const STATE = {
             DELETE: 1,
             HURT: 2,
@@ -161,6 +129,12 @@
                 direction: null,
                 x: 0,
                 y: 0,
+                speed: 25,
+            },
+            fps: {
+                draw: false,
+                last: 0,
+                count: 0,
             },
             auto_respawn: {
                 enabled: false,
@@ -791,9 +765,32 @@
             return original + noise.v;
         }
 
+        const keyboard = {
+            down: false,
+            up: false,
+            right: false,
+            left: false,
+        };
+
         document.addEventListener("keydown", (k) => {
             if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN || document.getElementById("chat_block").style.display == "inline-block" || document.getElementById("commandMainBox").style.display == "inline-block")
                 return;
+            switch (k.code) {
+                case "KeyA":
+                    if (!keyboard.left) keyboard.left = true;
+                    break;
+                case "KeyD":
+                    if (!keyboard.right) keyboard.right = true;
+                    break;
+                case "KeyS":
+                    if (!keyboard.down) keyboard.down = true;
+                    break;
+                case "KeyW":
+                    if (!keyboard.up) keyboard.up = true;
+                    break;
+                default:
+                    break;
+            }
             for (const s of Object.values(settings)) {
                 if (s.type == "press") continue;
                 if (k.code == s.k) s.enabled = true;
@@ -804,6 +801,22 @@
         document.addEventListener("keyup", (k) => {
             if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN || document.getElementById("chat_block").style.display == "inline-block" || document.getElementById("commandMainBox").style.display == "inline-block")
                 return;
+            switch (k.code) {
+                case "KeyA":
+                    if (keyboard.left) keyboard.left = false;
+                    break;
+                case "KeyD":
+                    if (keyboard.right) keyboard.right = false;
+                    break;
+                case "KeyS":
+                    if (keyboard.down) keyboard.down = false;
+                    break;
+                case "KeyW":
+                    if (keyboard.up) keyboard.up = false;
+                    break;
+                default:
+                    break;
+            }
 
             if (k.code == "Escape") {
                 gui.hide();
@@ -819,17 +832,23 @@
                 world = Aymen.world;
                 client = Aymen.client;
                 user = Aymen.user;
-                vars = Aymen.vars;
+                vars = Aymen.vars || JSON.parse(localStorage.getItem("vars"));
                 return;
             }
-
             if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN) return;
 
             function sendAymen(msg) {
                 if (client[vars._ws] && client[vars._ws].readyState == WebSocket.OPEN) client[vars._ws].send(JSON.stringify(msg));
             }
 
-            const timestamp = Date.now();
+            const timestamp = performance.now();
+
+            settings.fps.count++;
+
+            if (timestamp - settings.fps.last >= 1e3) {
+                settings.fps.last = timestamp;
+                settings.fps.count = 0;
+            }
 
             if (!client[vars._ws].noice) {
                 client[vars._ws].noice = true;
@@ -843,8 +862,9 @@
                             const pkt = JSON.parse(args[0]);
 
                             if (pkt[0] == 15 && settings.spectator.enabled) {
-                                args[1] = Math.abs(settings.spectator.x);
-                                args[2] = Math.abs(settings.spectator.y);
+                                pkt[1] = settings.spectator.x;
+                                pkt[2] = settings.spectator.y;
+                                args[0] = JSON.stringify(pkt);
                                 return Reflect.apply(target, thisArg, args);
                             }
 
@@ -855,12 +875,7 @@
                                 me.right != ItemType.BOOK && sendAymen([packets.equipe, ItemType.BOOK]);
                                 settings.auto_craft.id = pkt[1];
                             }
-                        } else {
-                            if (settings.spectator.enabled && args[0][0] == packets.move) {
-                                settings.spectator.direction = args[0][1];
-                                return;
-                            }
-                        }
+                        } else if (settings.spectator.enabled && args[0][0] == packets.move) return;
 
                         return Reflect.apply(target, thisArg, args);
                     },
@@ -875,6 +890,7 @@
 
             // me = world[vars.fast_units][user.id * 1e3];
             if (!me) return;
+            if (!settings.spectator.original) settings.spectator.original = user[vars.cam][vars.update];
             Aymen.me = me;
 
             if (!hidden) draw_ui();
@@ -889,52 +905,51 @@
 
             // spectator
             if (settings.spectator.enabled) {
+                user[vars.cam][vars.update] = () => {};
+
+                settings.spectator.speed = 1500 / settings.fps.count;
+
+                settings.spectator.direction = 0;
+
+                if (keyboard.left) settings.spectator.direction |= 1;
+                if (keyboard.right) settings.spectator.direction |= 2;
+                if (keyboard.down) settings.spectator.direction |= 4;
+                if (keyboard.up) settings.spectator.direction |= 8;
+
                 switch (settings.spectator.direction) {
                     case 1:
-                        user[vars.cam].x -= 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].x += settings.spectator.speed;
                         break;
                     case 2:
-                        user[vars.cam].x += 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].x -= settings.spectator.speed;
                         break;
                     case 4:
-                        user[vars.cam].y += 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].y -= settings.spectator.speed;
                         break;
                     case 5:
-                        user[vars.cam].x -= 50;
-                        user[vars.cam].y += 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].x += settings.spectator.speed;
+                        user[vars.cam].y -= settings.spectator.speed;
                         break;
                     case 6:
-                        user[vars.cam].x += 50;
-                        user[vars.cam].y += 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].x -= settings.spectator.speed;
+                        user[vars.cam].y -= settings.spectator.speed;
                         break;
                     case 8:
-                        user[vars.cam].y -= 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].y += settings.spectator.speed;
                         break;
                     case 9:
-                        user[vars.cam].x -= 50;
-                        user[vars.cam].y -= 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].x += settings.spectator.speed;
+                        user[vars.cam].y += settings.spectator.speed;
                         break;
                     case 10:
-                        user[vars.cam].x += 50;
-                        user[vars.cam].y -= 50;
-                        settings.spectator.x = user[vars.cam].x;
-                        settings.spectator.y = user[vars.cam].y;
+                        user[vars.cam].x -= settings.spectator.speed;
+                        user[vars.cam].y += settings.spectator.speed;
                         break;
                 }
+                settings.spectator.x = user[vars.cam].x;
+                settings.spectator.y = user[vars.cam].y;
+            } else if (settings.spectator.original != user[vars.cam][vars.update]) {
+                user[vars.cam][vars.update] = settings.spectator.original;
             }
 
             // auto craft
@@ -1119,7 +1134,7 @@
                             bandage: 0,
                         };
                     settings.timers.heal = false;
-                    settings.timers.next = Date.now() + 5e3;
+                    settings.timers.next = performance.now() + 5e3;
                 }
                 return;
             }
@@ -1176,7 +1191,7 @@
                             heat: data[6],
                             bandage: data[7],
                         };
-                    settings.timers.next = Date.now() + 5e3;
+                    settings.timers.next = performance.now() + 5e3;
                     settings.timers.heal = !settings.timers.heal;
                     break;
 
@@ -1280,7 +1295,7 @@
                     ctx.restore();
                 }
                 ctx.save();
-                const h = Math.round(settings.timers.next - Date.now());
+                const h = Math.round(settings.timers.next - performance.now());
                 const t = (h / 1e3).toFixed(2) + "s";
 
                 ctx.font = "24px Baloo Paaji";
@@ -1322,7 +1337,6 @@
 
             gui.register({ type: "folder", label: "Visuals" });
             gui.register({ type: "folder", label: "Misc" });
-            // gui.register({ type: "folder", label: "Others" });
             gui.register({ type: "folder", label: "Settings" });
 
             gui.register({ type: "checkbox", label: "Player On Top", folder: "Visuals", object: settings.player_on_top, prop: "enabled" });
@@ -1332,6 +1346,17 @@
             gui.register({ type: "checkbox", label: "Aimbot", folder: "Misc", object: settings.aimbot, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Steal Chest", folder: "Misc", object: settings.steal_chest, prop: "enabled" });
             gui.register({ type: "checkbox", label: "Auto Respawn", folder: "Misc", object: settings.auto_respawn, prop: "enabled" });
+
+            gui.register({
+                type: "button",
+                label: "Clear Cached Client",
+                folder: "Settings",
+                action: () => {
+                    localStorage.removeItem("vars");
+                    localStorage.removeItem("script_cache_exp");
+                    localStorage.removeItem("cached_client");
+                },
+            });
 
             for (const e in settings) {
                 if (settings[e].k) {
