@@ -1,6 +1,7 @@
 (() => {
     try {
-        const calcDist = (p1, p2) => {
+        const enc = (a) => Math.round(((((a % PI2M) + PI2M) % PI2M) * 255) / PI2M) & 255,
+            calcDist = (p1, p2) => {
                 let x1 = p1.x,
                     y1 = p1.y;
                 let x2 = p2.x,
@@ -907,8 +908,8 @@
                     p.prevX = p.newX;
                     p.prevY = p.newY;
 
-                    p.newX = p.x;
-                    p.newY = p.y;
+                    p.newX = p.r.x;
+                    p.newY = p.r.y;
                 }
 
                 if (p[vars.pid] == user.id) me = p;
@@ -946,8 +947,8 @@
 
                         const angle = calcAngle(me, m);
 
-                        sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
-                        sendAymen([packets.attack, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
+                        sendAymen([packets.angle, enc(angle)]);
+                        sendAymen([packets.attack, enc(angle)]);
                         sendAymen([packets.stop_attack]);
 
                         settings.auto_tame.last = timestamp;
@@ -1066,7 +1067,7 @@
 
                         const adjust = best_angle(me, type, predicted_angle);
                         if (adjust != null) {
-                            const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+                            const angle = enc(adjust);
 
                             sendAymen([packets.angle, angle]);
                             sendAymen([packets.place, spike, angle, 0]);
@@ -1076,7 +1077,7 @@
                     } else {
                         const adjust = best_angle(me, type);
                         if (adjust != null) {
-                            const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+                            const angle = enc(adjust);
                             sendAymen([packets.angle, angle]);
                             sendAymen([packets.place, spike, angle, 0]);
                             settings.auto_spike.last = timestamp;
@@ -1122,7 +1123,7 @@
 
                         const adjust = best_angle(me, type, predicted_angle);
                         if (adjust != null) {
-                            const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+                            const angle = enc(adjust);
 
                             sendAymen([packets.angle, angle]);
                             sendAymen([packets.place, wall, angle, 0]);
@@ -1132,7 +1133,7 @@
                     } else {
                         const adjust = best_angle(me, type);
                         if (adjust != null) {
-                            const angle = Math.floor((((adjust + PI2M) % PI2M) * 255) / PI2M);
+                            const angle = enc(adjust);
 
                             sendAymen([packets.angle, angle]);
                             sendAymen([packets.place, wall, angle, 0]);
