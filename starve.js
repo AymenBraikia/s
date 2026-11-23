@@ -1,6 +1,21 @@
 (() => {
     try {
-        const calcDist = (p1, p2) => Math.hypot(p2.x - p1.x, p2.y - p1.y),
+        const calcDist = (p1, p2) => {
+                let x1 = p1.x,
+                    y1 = p1.y;
+                let x2 = p2.x,
+                    y2 = p2.y;
+
+                if (p1.r && "x" in p1.r) {
+                    x1 = p1.r.x;
+                    y1 = p1.r.y;
+                }
+                if (p2.r && "x" in p2.r) {
+                    x2 = p2.r.x;
+                    y2 = p2.r.y;
+                }
+                return Math.hypot(x2 - x1, y2 - y1);
+            },
             sleep = async (ms) => new Promise((res) => setTimeout(res, ms)),
             get_num_in_range = ({ min, max }) => Math.round(min + Math.random() * (max - min)),
             calcAngle = (me, t) => {
@@ -9,14 +24,14 @@
                 let x2 = t.x,
                     y2 = t.y;
 
-                // if (me.r && "x" in me.r) {
-                //     x1 = me.r.x;
-                //     y1 = me.r.y;
-                // }
-                // if (t.r && "x" in t.r) {
-                //     x2 = t.r.x;
-                //     y2 = t.r.y;
-                // }
+                if (me.r && "x" in me.r) {
+                    x1 = me.r.x;
+                    y1 = me.r.y;
+                }
+                if (t.r && "x" in t.r) {
+                    x2 = t.r.x;
+                    y2 = t.r.y;
+                }
 
                 return (Math.atan2(y2 - y1, x2 - x1) + PI2M) % PI2M;
             },
@@ -876,8 +891,9 @@
                                 settings.auto_craft.id = pkt[1];
                             }
                         } else {
-                            // if (Array.isArray(window.logger) && window.logger.includes(pkt[0])) Aymen.log(pkt);
-                            // else if (window.logger == true) Aymen.log(pkt);
+                            const pkt = args[0];
+                            if (Array.isArray(window.logger) && window.logger.includes(pkt[0])) Aymen.log(pkt);
+                            else if (window.logger == true) Aymen.log(pkt);
                             if (settings.spectator.enabled && args[0][0] == packets.move) return;
                         }
 
@@ -887,7 +903,7 @@
             }
 
             for (const p of world[vars.units][ITEMS.PLAYERS]) {
-                if (p.newX != p.x || p.newY != p.y) {
+                if (p.newX != p.r.x || p.newY != p.r.y) {
                     p.prevX = p.newX;
                     p.prevY = p.newY;
 
@@ -1035,15 +1051,15 @@
                     if (enemy) {
                         // enemy velocity (px per tick), from position history
 
-                        const vx = enemy.x - enemy.prevX;
-                        const vy = enemy.y - enemy.prevY;
+                        const vx = enemy.r.x - enemy.prevX;
+                        const vy = enemy.r.y - enemy.prevY;
 
                         const speed = Math.hypot(vx, vy) || 1;
-                        const lead = RADUIS.GOLD_SPIKE; // px ahead of him, tune this
+                        const lead = RADUIS.GOLD_SPIKE + 15; // px ahead of him, tune this
 
                         const predicted = {
-                            x: enemy.x + (vx / speed) * lead,
-                            y: enemy.y + (vy / speed) * lead,
+                            x: enemy.r.x + (vx / speed) * lead,
+                            y: enemy.r.y + (vy / speed) * lead,
                         };
 
                         const predicted_angle = calcAngle(me, predicted);
@@ -1091,15 +1107,15 @@
                         if (!enemy && d <= rng) enemy = t;
                     }
                     if (enemy) {
-                        const vx = enemy.x - enemy.prevX;
-                        const vy = enemy.y - enemy.prevY;
+                        const vx = enemy.r.x - enemy.prevX;
+                        const vy = enemy.r.y - enemy.prevY;
 
                         const speed = Math.hypot(vx, vy) || 1;
-                        const lead = RADUIS.GOLD_SPIKE + 15;
+                        const lead = RADUIS.WOOD_WALL + 10;
 
                         const predicted = {
-                            x: enemy.x + (vx / speed) * lead,
-                            y: enemy.y + (vy / speed) * lead,
+                            x: enemy.r.x + (vx / speed) * lead,
+                            y: enemy.r.y + (vy / speed) * lead,
                         };
 
                         const predicted_angle = calcAngle(me, predicted);
@@ -1168,7 +1184,7 @@
                             settings.aimbot.org_angle = angle;
 
                             settings.aimbot.angle2 = calcAngle(me, target);
-                            angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
+                            // angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
 
                             settings.aimbot.angle = angle;
                         }
