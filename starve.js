@@ -175,6 +175,8 @@
                 direction: null,
                 x: 0,
                 y: 0,
+                old_x: null,
+                old_y: null,
                 speed: 35,
             },
             fps: {
@@ -862,6 +864,12 @@
 
             if (k.code == settings.spectator.k && settings.spectator.enabled) {
                 settings.spectator.enabled = false;
+                user[vars.cam].x = settings.spectator.old_x;
+                user[vars.cam].y = settings.spectator.old_y;
+
+                settings.spectator.old_x = null;
+                settings.spectator.old_y = null;
+
                 return !Aymen.me && sendAymen([14]);
             }
             if (k.code == "Escape") {
@@ -1001,6 +1009,10 @@
             if (settings.spectator.enabled) {
                 // spectator
                 user[vars.cam][vars.update] = () => {};
+                if (settings.spectator.old_x == null || settings.spectator.old_y == null) {
+                    settings.spectator.old_x = user[vars.cam].x;
+                    settings.spectator.old_y = user[vars.cam].y;
+                }
 
                 settings.spectator.speed = Math.min(Math.max(2000 / settings.fps.amount, 25), 40);
 
