@@ -128,6 +128,8 @@
             IDLE: 128,
             WALK: 256,
         };
+        let session = null;
+
         let settings = {
             gauges: {
                 enabled: true,
@@ -1251,18 +1253,10 @@
                     if (target) {
                         settings.aimbot.target = target;
                         let angle = calcAngle(me, target);
-
-                        if (settings.aimbot.org_angle != angle) {
-                            settings.aimbot.org_angle = angle;
-
-                            settings.aimbot.angle2 = calcAngle(me, target);
-                            // angle = calcAngle(me, { x: randomize(target.x), y: randomize(target.y) });
-
+                        if (me.angle != angle) {
                             settings.aimbot.angle = angle;
-                        }
 
-                        if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
-                            if (target) {
+                            if (timestamp - settings.aimbot.last > settings.aimbot.cd) {
                                 settings.aimbot.attack = me.action & STATE.ATTACK ? true : false;
                                 sendAymen([packets.angle, Math.floor((((angle + PI2M) % PI2M) * 255) / PI2M)]);
 
@@ -1272,12 +1266,6 @@
                                 }
 
                                 settings.aimbot.last = timestamp;
-                            } else if (settings.aimbot.attack) {
-                                settings.aimbot.attack = false;
-                                settings.aimbot.angle = null;
-                                settings.aimbot.angle2 = null;
-                                settings.aimbot.org_angle = null;
-                                sendAymen([packets.stop_attack]);
                             }
                         }
                     } else {
@@ -1340,11 +1328,15 @@
         function packet_handler(event) {
             if (typeof event.data === "string") {
                 const msg = JSON.parse(event.data);
+                if (window.log_pkts) Aymen.log(msg);
                 if (msg[0] === 3) {
                     // spawn
+
                     const myUnit = msg[9] * msg[7]; // player id * units per player
                     const unit = world[vars.fast_units][myUnit];
                     if (unit) unit.gauges = default_gauges;
+                    const survived_days = msg[2];
+                    session = performance.now() - survived_days * 1e3 * 60 * 8;
 
                     settings.timers.heal = false;
                     settings.timers.next = performance.now() + 5e3;
@@ -1358,6 +1350,7 @@
 
             // byte 2 is the opcode; entity updates (0/1) are the most common and are ignored, so they cost one byte decode
             const op = decode_byte(raw, 2);
+            // if (window.log_pkts)
             if (!me) return;
 
             switch (op) {
@@ -1365,6 +1358,8 @@
                 // case 1:
                 //     Aymen.log(op);
                 //     break;
+                // case 20:
+                //     break; // survived a day
                 case 16: // gauges update
                     me.gauges = {
                         life: decode_byte(raw, 3),
@@ -1550,7 +1545,27 @@
                 ctx.fillText(t, cam_x, cam_y + 80);
             }
 
+            ctx.globalAlpha = 1;
+            ctx.textAlign = "left";
+            ctx.fillStyle = "white";
+            ctx.strokeStyle = "black";
+
+            const txt = "Session: " + simplifyTime(Math.floor((performance.now() - session) / 1e3));
+            const m = ctx.measureText(txt);
+
+            ctx.strokeText(txt, innerWidth - 10 - m.width, innerHeight - 24);
+            ctx.fillText(txt, innerWidth - 10 - m.width, innerHeight - 24);
+
             ctx.restore();
+        }
+        function simplifyTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+
+            if (hours) return `${hours}h ${minutes}min ${secs}s`;
+            if (minutes) return `${minutes}min ${secs}s`;
+            return `${secs}s`;
         }
 
         function changeKeybind(obj) {
