@@ -292,6 +292,7 @@
             BIG_FIRE: 209,
             BOOK: 46,
             WOOD_WALL: 264,
+            BRIDGE: 216,
 
             WOOD_SPIKE: 262,
             STONE_SPIKE: 270,
@@ -912,8 +913,8 @@
                             if (pkt[0] == 14 && settings.spectator.enabled) return;
                             // if (pkt[0] == 15) Aymen.log(pkt);
 
-                            // if (Array.isArray(window.logger) && window.logger.includes(pkt[0])) Aymen.log(pkt);
-                            // else if (window.logger == true) Aymen.log(pkt);
+                            if (Array.isArray(window.logger) && window.logger.includes(pkt[0])) Aymen.log(pkt);
+                            else if (window.logger == true) Aymen.log(pkt);
 
                             if (pkt[0] == packets.craft) {
                                 me.right != ItemType.BOOK && sendAymen([packets.equipe, ItemType.BOOK]);
@@ -1190,13 +1191,13 @@
                 let bridge;
 
                 const amounts = user[vars.inv][vars.n];
-                if (amounts[ItemType.WOOD_WALL]) bridge = ItemType.WOOD_WALL;
+                if (amounts[ItemType.BRIDGE]) bridge = ItemType.BRIDGE;
 
                 if (bridge) {
                     const angle = enc(me.angle);
 
                     sendAymen([packets.angle, angle]);
-                    sendAymen([packets.place, wall, angle, 1]);
+                    sendAymen([packets.place, bridge, angle, 1]);
 
                     settings.auto_bridge.last = timestamp;
                     settings.auto_bridge.cd = get_num_in_range({ min: 50, max: 100 });
