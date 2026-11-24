@@ -921,10 +921,6 @@
                             const pkt = JSON.parse(args[0]);
 
                             if (pkt[0] == 14 && settings.spectator.enabled) return;
-                            // if (pkt[0] == 15) Aymen.log(pkt);
-
-                            if (Array.isArray(window.logger) && window.logger.includes(pkt[0])) Aymen.log(pkt);
-                            else if (window.logger == true) Aymen.log(pkt);
 
                             if (pkt[0] == packets.craft) {
                                 me.right != ItemType.BOOK && sendAymen([packets.equipe, ItemType.BOOK]);
@@ -967,7 +963,6 @@
             //         dy = settings.zoom.y;
 
             //     settings.zoom.last = timestamp;
-            //     // Aymen.log("xd lol");
 
             //     // x || y
             //     sendAymen([15, user[vars.cam].x - dx, user[vars.cam].y]);
@@ -1328,7 +1323,6 @@
         function packet_handler(event) {
             if (typeof event.data === "string") {
                 const msg = JSON.parse(event.data);
-                if (window.log_pkts) Aymen.log(msg);
                 if (msg[0] === 3) {
                     // spawn
 
@@ -1350,17 +1344,10 @@
 
             // byte 2 is the opcode; entity updates (0/1) are the most common and are ignored, so they cost one byte decode
             const op = decode_byte(raw, 2);
-            // if (window.log_pkts)
             if (!me) return;
 
             switch (op) {
-                // case 0:
-                // case 1:
-                //     Aymen.log(op);
-                //     break;
-                // case 20:
-                //     break; // survived a day
-                case 16: // gauges update
+                case 16:
                     me.gauges = {
                         life: decode_byte(raw, 3),
                         food: decode_byte(raw, 4),
