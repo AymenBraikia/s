@@ -890,6 +890,7 @@
                 client = Aymen.client;
                 user = Aymen.user;
                 vars = Aymen.vars || JSON.parse(localStorage.getItem("vars"));
+                Aymen.vars = vars;
                 return;
             }
             if (!client[vars._ws] || client[vars._ws].readyState != WebSocket.OPEN) {
@@ -1213,7 +1214,7 @@
                 }
             }
             // auto fire
-            if (settings.auto_fire.enabled && !user.build.wait && timestamp - settings.auto_fire.last > settings.auto_fire.cd) {
+            if (settings.auto_fire.enabled && timestamp - settings.auto_fire.last > settings.auto_fire.cd) {
                 let fire;
 
                 const amounts = user[vars.inv][vars.n];
